@@ -10,17 +10,19 @@ displayName = "${mod_display_name}"
 authors = "${mod_authors}"
 description = '''${mod_description}'''
 
-[[dependencies.${mod_id}]]
-    modId = "forge"
-    mandatory = true
-    versionRange = "[46,)"
-    ordering = "NONE"
-    side = "BOTH"
-
+# Targets Minecraft 1.20 and 1.20.1 (both use Forge 47.x). The half-open range accepts
+# either, matching how Touhou Little Maid itself declares its own support.
 [[dependencies.${mod_id}]]
     modId = "minecraft"
     mandatory = true
     versionRange = "[1.20,1.20.2)"
+    ordering = "NONE"
+    side = "BOTH"
+
+[[dependencies.${mod_id}]]
+    modId = "forge"
+    mandatory = true
+    versionRange = "[47,48)"
     ordering = "NONE"
     side = "BOTH"
 
