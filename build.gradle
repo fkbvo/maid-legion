@@ -1,0 +1,119 @@
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '[6.0.24,6.2)'
+    id 'org.parchmentmc.librarian.forgegradle' version '1.2.0'
+}
+
+// Loader-tagged version, matching the convention Touhou Little Maid itself uses
+// (e.g. touhoulittlemaid-1.5.3-forge+mc1.20.1.jar). Keeping the loader in the name makes it
+// obvious which build you are looking at once a Fabric or NeoForge port exists.
+version = "${mod_version}-${mod_loader}+mc${mc_version}"
+group = mod_group
+
+// mod_display_name is UTF-8 in gradle.properties, but Java reads .properties as ISO-8859-1,
+// so the value arrives mojibake'd. Re-decode: recover the original bytes via Latin-1, then
+// interpret them as UTF-8. Removing this makes the in-game name show as garbage.
+def decodeProp = { String value ->
+    if (value == null) {
+        return null
+    }
+    return new String(value.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1),
+            java.nio.charset.StandardCharsets.UTF_8)
+}
+def displayName = decodeProp(providers.gradleProperty('mod_display_name').getOrElse('Maid Manager'))
+
+// The archive name is plain ASCII: mod_id, version, loader, mc version.
+base {
+    archivesName = mod_id
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods { "${mod_id}" { source sourceSets.main } }
+        }
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+    }
+}
+
+repositories {
+    // TLM is not published to any Maven repository, so it is resolved from a local
+    // flat-dir repo. This form (rather than files(...)) is what lets ForgeGradle
+    // deobfuscate the jar, which is required for its API to be usable at compile time.
+    flatDir {
+        dirs 'libs'
+    }
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${forge_version}"
+
+    // compileOnly for the API surface, runtimeOnly so runClient can actually load TLM.
+    // Never `implementation`: shipping TLM inside this jar would breach its licence
+    // (code MIT, assets CC BY-NC-SA) and cause duplicate-class conflicts.
+    compileOnly fg.deobf("tlm:touhoulittlemaid:1.5.3-forge+mc1.20.1")
+    runtimeOnly fg.deobf("tlm:touhoulittlemaid:1.5.3-forge+mc1.20.1")
+
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    // mods.toml is read by Forge as UTF-8, so the expansion must not fall back to the
+    // platform encoding (which on a Chinese Windows is GBK and would corrupt the name).
+    filteringCharset = 'UTF-8'
+    var replaceProperties = [
+            mod_id          : mod_id,
+            mod_name        : mod_name,
+            mod_display_name: displayName,
+            mod_version     : mod_version,
+            mod_authors     : mod_authors,
+            mod_description : mod_description,
+            mc_version      : mc_version,
+            forge_version   : forge_version
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml']) {
+        expand replaceProperties
+    }
+}
+
+tasks.named('jar', Jar).configure({
+    manifest {
+        attributes([
+                'Specification-Title'     : mod_id,
+                'Specification-Vendor'    : mod_authors,
+                'Specification-Version'   : '1',
+                'Implementation-Title'    : project.name,
+                'Implementation-Version'  : project.jar.archiveVersion,
+                'Implementation-Vendor'   : mod_authors
+        ])
+    }
+    finalizedBy 'reobfJar'
+})
+
+// The jar name already carries everything needed (mod id, version, loader, mc version),
+// so no post-processing rename step is required.
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

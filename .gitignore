@@ -1,0 +1,24 @@
+# Gradle
+.gradle/
+build/
+run/
+out/
+logs/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Local dependency: TLM is not on any public Maven repo, so its jar must be placed in
+# libs/ by hand to build. It is 23 MB and belongs to its own authors, never commit it.
+libs/

@@ -1,0 +1,61 @@
+{
+  "itemGroup.maid_manager": "Maid Manager",
+  "key.categories.maid_manager": "Maid Manager",
+  "key.maid_manager.open": "Open Maid Terminal",
+  "key.maid_manager.toggle": "Summon / Recall Maids",
+
+  "gui.maid_manager.title": "Maid Terminal",
+  "gui.maid_manager.search": "Search...",
+  "gui.maid_manager.empty": "No maids found",
+  "gui.maid_manager.count": "Selected %s / %s",
+  "gui.maid_manager.summon": "Summon",
+  "gui.maid_manager.store": "Recall",
+  "gui.maid_manager.refresh": "Refresh",
+  "gui.maid_manager.select_all": "All",
+  "gui.maid_manager.invert": "Invert",
+  "gui.maid_manager.clear": "None",
+  "gui.maid_manager.only_favourites": "★ Starred",
+  "gui.maid_manager.only_favourites.on": "★ Show all",
+
+  "gui.maid_manager.state.present": "Present",
+  "gui.maid_manager.state.stored": "Stored",
+  "gui.maid_manager.state.unloaded": "Unloaded",
+
+  "gui.maid_manager.col.maid": "Maid",
+  "gui.maid_manager.col.health": "Health",
+  "gui.maid_manager.col.load": "Force-load",
+  "gui.maid_manager.col.state": "State",
+
+  "gui.maid_manager.load.on": "ON",
+  "gui.maid_manager.load.off": "OFF",
+  "gui.maid_manager.load.tooltip.title": "Force-load",
+  "gui.maid_manager.load.tooltip.what": "While on, this maid's chunk stays loaded,",
+  "gui.maid_manager.load.tooltip.what2": "so she can be summoned even from far away or another dimension.",
+  "gui.maid_manager.load.tooltip.state": "Currently: %s",
+  "gui.maid_manager.load.tooltip.click": "Click to toggle",
+  "gui.maid_manager.load.tooltip.disabled": "Disabled by the server",
+  "gui.maid_manager.load.tooltip.stored": "This maid is stored as data, so she holds no chunk and needs no force-load.",
+
+  "gui.maid_manager.sub.stored": "Stored - ready to summon",
+  "gui.maid_manager.sub.stored_at": "Stored %s ago - #%s",
+
+  "gui.maid_manager.help": "?",
+
+  "gui.maid_manager.warning.title": "About force-loading",
+  "gui.maid_manager.warning.line1": "While on, this maid's chunk stays loaded at all times,",
+  "gui.maid_manager.warning.line2": "so you can summon her even from far away or another dimension.",
+  "gui.maid_manager.warning.line3": "Cost: the chunk keeps using server resources, more so with more maids.",
+  "gui.maid_manager.warning.line4": "Recommended for maids you use often. Set per maid.",
+  "gui.maid_manager.warning.confirm": "I understand",
+  "gui.maid_manager.warning.cancel": "Cancel",
+  "gui.maid_manager.warning.close": "Close",
+
+  "message.maid_manager.result.refresh": "Maid list refreshed",
+  "message.maid_manager.result.summon": "Summoned %s maid(s), %s failed",
+  "message.maid_manager.result.store": "Recalled %s maid(s), %s failed",
+  "message.maid_manager.cannot_reach": "Cannot reach this maid: her chunk is unloaded and force-load is off for her.",
+  "message.maid_manager.no_selection": "Tick the maids you want in the maid terminal first.",
+  "message.maid_manager.nothing_to_do": "The ticked maids are already with you; nothing to do.",
+  "message.maid_manager.force_load_done": "Force-load brought the maid to you.",
+  "message.maid_manager.force_load_timeout": "Force-load timed out: the maid's chunk could not be loaded. Try again later."
+}
