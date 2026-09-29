@@ -51,7 +51,9 @@ public class C2SReviveMaidPacket {
                             Component.translatable("message.maid_legion.need_materials"), true);
                     case NOT_DEAD -> sender.displayClientMessage(
                             Component.translatable("message.maid_legion.not_dead"), true);
-                    case NOT_OWNED -> sender.displayClientMessage(
+                    case NOT_OWNER -> sender.displayClientMessage(
+                            Component.translatable("message.maid_legion.not_owner"), true);
+                    case NOT_ENROLLED -> sender.displayClientMessage(
                             Component.translatable("message.maid_legion.not_enrolled"), true);
                     case FAILED -> sender.sendSystemMessage(
                             Component.translatable("message.maid_legion.revive_failed"));
