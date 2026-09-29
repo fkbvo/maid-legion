@@ -102,6 +102,36 @@ public class MaidDeathStorageTest {
         assertFalse(storage.contains(owner, maid));
     }
 
+    /**
+     * A death record must be queryable by owner, because that query is what proves ownership.
+     *
+     * <p>Regression guard for a bug that only appeared in game. {@code MaidManagerService
+     * .ownsMaid} had three ways to recognise a maid - a loaded entity, our own store, or TLM's
+     * unloaded-maid list - and a maid we captured on death matches none of them: she has no
+     * entity, is not in the store, and TLM has stopped tracking her. The roster is built from
+     * the death records though, so the panel happily listed her while every action on her,
+     * revive included, was refused as "not your maid".
+     *
+     * <p>The fix makes {@code ownsMaid} fall back to exactly the {@code contains} query below.
+     * If {@code contains} ever stopped agreeing with {@code recordDeath}'s key, dead maids
+     * would silently become uncontrollable again.
+     */
+    @Test
+    public void aDeathRecordIsQueryableByOwnerSoItCanProveOwnership() {
+        UUID owner = uuid();
+        UUID maid = uuid();
+        MaidDeathStorage storage = new MaidDeathStorage();
+
+        assertFalse("nothing recorded yet", storage.contains(owner, maid));
+
+        storage.recordDeath(owner, maid, maidTag(), "Marisa", true);
+
+        assertTrue("the owner must be able to prove ownership through the death record",
+                storage.contains(owner, maid));
+        assertFalse("and it must not read as owned by anyone else",
+                storage.contains(uuid(), maid));
+    }
+
     /** Two players' records must not bleed into each other. */
     @Test
     public void recordsAreScopedToTheirOwner() {

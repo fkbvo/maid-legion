@@ -226,8 +226,14 @@ public final class MaidManagerService {
      * @return a result describing what happened, so the GUI can report it
      */
     public static ReviveResult beginRevive(ServerPlayer player, UUID maidId) {
-        if (!canControl(player, maidId)) {
-            return ReviveResult.NOT_OWNED;
+        // Checked separately rather than through canControl, because "not yours" and "not
+        // enrolled" are different problems with different fixes, and collapsing them into one
+        // refusal produced a message that sent the player looking for the wrong cause.
+        if (!ownsMaid(player, maidId)) {
+            return ReviveResult.NOT_OWNER;
+        }
+        if (!isEnrolled(player, maidId)) {
+            return ReviveResult.NOT_ENROLLED;
         }
         MaidDeathStorage storage = MaidDeathStorage.get(player.getServer());
         MaidDeathStorage.DeadMaid dead = storage.get(player.getUUID(), maidId);
@@ -309,7 +315,10 @@ public final class MaidManagerService {
     /** Outcome of asking to revive, so the caller can pick the right message. */
     public enum ReviveResult {
         STARTED,
-        NOT_OWNED,
+        /** She is not this player's maid at all. */
+        NOT_OWNER,
+        /** She is the player's, but was never enrolled in the legion. */
+        NOT_ENROLLED,
         NOT_DEAD,
         NEED_MATERIALS,
         /** Payment went through but she could not be placed; the materials were refunded. */
@@ -767,6 +776,16 @@ public final class MaidManagerService {
             return true;
         }
         if (MaidStorage.get(player.getServer()).contains(player.getUUID(), maidId)) {
+            return true;
+        }
+        // A maid we captured on death has no entity, is not in our store, and TLM has stopped
+        // tracking her, so all three checks miss her. Without this the panel listed her - the
+        // roster is built from the death records - while every action on her was refused as
+        // "not yours", which is exactly the contradiction the revive button hit.
+        //
+        // The death record is itself proof of ownership: MaidDeathHandler only writes one
+        // after confirming the maid belongs to this player and is enrolled.
+        if (MaidDeathStorage.get(player.getServer()).contains(player.getUUID(), maidId)) {
             return true;
         }
         for (MaidInfo info : MaidUtil.getUnloadedMaidInfos(player)) {
