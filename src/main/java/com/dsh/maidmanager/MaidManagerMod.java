@@ -14,7 +14,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 
 /**
- * Entry point of the Maid Manager mod.
+ * Entry point of the Maid Legion mod.
  *
  * <p>The mod is a companion for Touhou Little Maid (TLM). It never ships TLM code or
  * assets; every interaction with TLM lives behind {@link com.dsh.maidmanager.util.MaidUtil}
@@ -37,7 +37,7 @@ public final class MaidManagerMod {
         forgeBus.addListener(this::onServerStopping);
         forgeBus.addListener(this::onServerTick);
 
-        LOGGER.info("Maid Manager loaded.");
+        LOGGER.info("Maid Legion loaded.");
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {

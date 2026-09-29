@@ -21,7 +21,7 @@ def decodeProp = { String value ->
     return new String(value.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1),
             java.nio.charset.StandardCharsets.UTF_8)
 }
-def displayName = decodeProp(providers.gradleProperty('mod_display_name').getOrElse('Maid Manager'))
+def displayName = decodeProp(providers.gradleProperty('mod_display_name').getOrElse('Maid Legion'))
 
 // ---------------------------------------------------------------------------
 // Optional network proxy
@@ -79,7 +79,7 @@ if (proxySpec != null && !proxySpec.trim().isEmpty()) {
     System.setProperty('https.proxyHost', parsed.host)
     System.setProperty('https.proxyPort', parsed.port)
     System.setProperty('http.nonProxyHosts', merged)
-    logger.lifecycle("Maid Manager: routing the mod mavens through proxy ${parsed.host}:${parsed.port}")
+    logger.lifecycle("Maid Legion: routing the mod mavens through proxy ${parsed.host}:${parsed.port}")
 }
 
 // ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ if (jdkPaths == null || jdkPaths.trim().isEmpty()) {
 }
 if (jdkPaths != null && !jdkPaths.trim().isEmpty()) {
     System.setProperty('org.gradle.java.installations.paths', jdkPaths)
-    logger.lifecycle("Maid Manager: JDK search paths set to ${jdkPaths}")
+    logger.lifecycle("Maid Legion: JDK search paths set to ${jdkPaths}")
 }
 
 // The archive name is plain ASCII: mod_id, version, loader, mc version.

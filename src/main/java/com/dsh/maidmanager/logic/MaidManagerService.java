@@ -902,7 +902,7 @@ public final class MaidManagerService {
                     ServerPlayer player = ctx.getSource().getPlayerOrException();
                     List<MaidEntry> entries = snapshot(player);
                     ctx.getSource().sendSuccess(() -> Component.literal(
-                            "Maid Manager: " + entries.size() + " maid(s)"), false);
+                            "Maid Legion: " + entries.size() + " maid(s)"), false);
                     for (MaidEntry e : entries) {
                         ctx.getSource().sendSuccess(() -> Component.literal(
                                 " - " + e.name.getString() + " [" + e.state + "] "
