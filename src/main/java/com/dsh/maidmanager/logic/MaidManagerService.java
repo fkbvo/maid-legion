@@ -20,6 +20,7 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,17 +64,22 @@ public final class MaidManagerService {
         MaidRegistry registry = MaidRegistry.get(player.getServer());
         MaidStorage storage = MaidStorage.get(player.getServer());
         Map<UUID, MaidEntry> byId = new LinkedHashMap<>();
+        // Experience is read at the point we already have each maid's NBT or entity in hand, so
+        // decorating the roster afterwards costs no extra lookups.
+        Map<UUID, Integer> experienceById = new HashMap<>();
 
         // 1) Loaded maids in the player's current dimension.
         ServerLevel level = player.serverLevel();
         for (EntityMaid maid : level.getEntitiesOfClass(EntityMaid.class, ALL_ENTITIES)) {
             if (maid.isOwnedBy(player)) {
                 byId.putIfAbsent(maid.getUUID(), present(maid, player, registry));
+                experienceById.put(maid.getUUID(), maid.getExperience());
             }
         }
 
         // 2) Stored maids (our own NBT records) - always summonable.
         for (MaidStorage.StoredMaid stored : storage.list(player.getUUID())) {
+            experienceById.put(stored.id(), stored.data().getInt(EntityMaid.EXPERIENCE_TAG));
             byId.putIfAbsent(stored.id(), new MaidEntry(
                     stored.id(),
                     Component.literal(stored.name().isEmpty() ? "Maid" : stored.name()),
@@ -116,6 +122,7 @@ public final class MaidManagerService {
         // 3b) Dead maids we captured instead of leaving a tombstone. Recorded before TLM's own
         //     world data is consulted, so a captured death never shows up as "unloaded" too.
         for (MaidDeathStorage.DeadMaid dead : MaidDeathStorage.get(player.getServer()).list(player.getUUID())) {
+            experienceById.put(dead.id(), dead.data().getInt(EntityMaid.EXPERIENCE_TAG));
             byId.put(dead.id(), new MaidEntry(
                     dead.id(),
                     Component.literal(dead.name().isEmpty() ? "Maid" : dead.name()),
@@ -140,13 +147,47 @@ public final class MaidManagerService {
         //    same roster. Doing it per-caller would let the hotkey act on maids the panel
         //    never showed, which is precisely the accident enrolment exists to prevent.
         Set<UUID> allowed = registry.enrolledMaids(player.getUUID());
+        MaidProgressStorage progress = MaidProgressStorage.get(player.getServer());
         List<MaidEntry> result = new ArrayList<>(byId.size());
         for (MaidEntry entry : byId.values()) {
             if (allowed.contains(entry.id)) {
-                result.add(entry);
+                // UNLOADED maids report 0: their NBT is inside TLM's world data, unreachable from
+                // here, and the upgrade service refuses to sell them anything for the same reason.
+                int experience = experienceById.getOrDefault(entry.id, 0);
+                result.add(entry.withProgression(experience, levelsArray(progress, entry.id)));
             }
         }
         return result;
+    }
+
+    /** The stored levels of one maid as a dense array indexed by {@link MaidUpgrade#ordinal()}. */
+    private static int[] levelsArray(MaidProgressStorage progress, UUID maidId) {
+        MaidUpgrade[] upgrades = MaidUpgrade.values();
+        int[] levels = new int[upgrades.length];
+        Map<String, Integer> stored = progress.levelsOf(maidId);
+        if (stored.isEmpty()) {
+            return levels;
+        }
+        for (MaidUpgrade upgrade : upgrades) {
+            levels[upgrade.ordinal()] = stored.getOrDefault(upgrade.id(), 0);
+        }
+        return levels;
+    }
+
+    /** The player-wide half of the snapshot: wallet, bank and owned abilities. */
+    public static ProgressionInfo progression(ServerPlayer player) {
+        MaidProgressStorage progress = MaidProgressStorage.get(player.getServer());
+        GlobalUpgrade[] abilities = GlobalUpgrade.values();
+        int[] owned = new int[abilities.length];
+        for (GlobalUpgrade ability : abilities) {
+            owned[ability.ordinal()] = progress.hasGlobal(player.getUUID(), ability) ? 1 : 0;
+        }
+        return new ProgressionInfo(
+                MaidProgressionService.walletOf(player),
+                progress.banked(player.getUUID()),
+                MaidProgressionService.bankCap(),
+                progress.autoDepositEnabled(player.getUUID()),
+                owned);
     }
 
     /** True when this maid is enrolled and therefore visible to the panel. */
@@ -298,6 +339,14 @@ public final class MaidManagerService {
             // Curios must go back after load(), so the capability exists on a live entity.
             CuriosAccess.restoreInto(maid, data);
             returnHeldItems(player, maid, data);
+
+            // The snapshot was taken before TLM applied its death penalty, so restoring it hands
+            // back points TLM meant to take. Put the penalty back, minus the legion ability that
+            // waives it. Must run after load(), or it is overwritten.
+            MaidProgressionService.applyDeathPenalty(maid);
+            // Attribute modifiers are transient; the join hook would also cover this, but doing it
+            // here means her panel stats are already correct the instant she is back.
+            MaidProgressionService.applyTo(maid);
 
             storage.remove(player.getUUID(), maidId);
             // Re-register with TLM so she is tracked as a live maid again.

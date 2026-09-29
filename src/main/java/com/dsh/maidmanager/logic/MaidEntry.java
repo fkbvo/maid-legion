@@ -44,6 +44,20 @@ public final class MaidEntry {
     public final int deathCount;
     /** Whether a {@link MaidState#DEAD} maid still has her inventory in the snapshot. */
     public final boolean hadItems;
+    /**
+     * Her accumulated experience, read wherever she lives.
+     *
+     * <p>Zero when she is in a state whose NBT we cannot reach, which is also when the upgrade
+     * panel refuses to sell her anything.
+     */
+    public final int experience;
+    /**
+     * Upgrade levels indexed by {@link MaidUpgrade#ordinal()}.
+     *
+     * <p>An array rather than a map because the enum is the schema: the length is fixed by
+     * {@link MaidUpgrade#values()}, and the wire format is a plain var-int array.
+     */
+    public final int[] levels;
 
     public MaidEntry(UUID id, Component name, MaidState state, String dimension, BlockPos pos,
                      float health, float maxHealth, boolean forceLoad, boolean acknowledged,
@@ -66,10 +80,21 @@ public final class MaidEntry {
                 sameDimension, storedAt, favourite, 0, false);
     }
 
+    /**
+     * Backwards-compatible constructor: progression defaults to "no experience, no upgrades".
+     */
     public MaidEntry(UUID id, Component name, MaidState state, String dimension, BlockPos pos,
                      float health, float maxHealth, boolean forceLoad, boolean acknowledged,
                      boolean sameDimension, long storedAt, boolean favourite,
                      int deathCount, boolean hadItems) {
+        this(id, name, state, dimension, pos, health, maxHealth, forceLoad, acknowledged,
+                sameDimension, storedAt, favourite, deathCount, hadItems, 0, null);
+    }
+
+    public MaidEntry(UUID id, Component name, MaidState state, String dimension, BlockPos pos,
+                     float health, float maxHealth, boolean forceLoad, boolean acknowledged,
+                     boolean sameDimension, long storedAt, boolean favourite,
+                     int deathCount, boolean hadItems, int experience, int[] levels) {
         this.id = id;
         this.name = name;
         this.state = state;
@@ -84,6 +109,51 @@ public final class MaidEntry {
         this.favourite = favourite;
         this.deathCount = deathCount;
         this.hadItems = hadItems;
+        this.experience = Math.max(0, experience);
+        this.levels = normalise(levels);
+    }
+
+    /**
+     * Pads or trims a level array to exactly one slot per upgrade.
+     *
+     * <p>Short input arrives from a client running an older build, and long input from one running
+     * a newer build; both must render rather than throw an array bounds error.
+     */
+    private static int[] normalise(int[] levels) {
+        int size = MaidUpgrade.values().length;
+        int[] out = new int[size];
+        if (levels != null) {
+            System.arraycopy(levels, 0, out, 0, Math.min(size, levels.length));
+        }
+        for (int i = 0; i < size; i++) {
+            out[i] = Math.max(0, out[i]);
+        }
+        return out;
+    }
+
+    /** This maid's level in one upgrade, or 0 when she has never bought it. */
+    public int levelOf(MaidUpgrade upgrade) {
+        int index = upgrade.ordinal();
+        return index < levels.length ? levels[index] : 0;
+    }
+
+    /** Whether she can be sold upgrades at all right now. */
+    public boolean upgradable() {
+        // UNLOADED maids live in TLM's own world data, which we cannot write experience into.
+        return state != MaidState.UNLOADED;
+    }
+
+    /**
+     * A copy of this entry with progression filled in.
+     *
+     * <p>Progression is attached after the roster is assembled rather than threaded through all
+     * four snapshot sources, because only some of them can read it at the point the entry is
+     * built.
+     */
+    public MaidEntry withProgression(int experience, int[] levels) {
+        return new MaidEntry(id, name, state, dimension, pos, health, maxHealth, forceLoad,
+                acknowledged, sameDimension, storedAt, favourite, deathCount, hadItems,
+                experience, levels);
     }
 
     /** A short, stable suffix that distinguishes two maids sharing a name, e.g. {@code 3f2a}. */
@@ -133,6 +203,8 @@ public final class MaidEntry {
         buf.writeBoolean(favourite);
         buf.writeVarInt(deathCount);
         buf.writeBoolean(hadItems);
+        buf.writeVarInt(experience);
+        buf.writeVarIntArray(levels);
     }
 
     public static MaidEntry read(FriendlyByteBuf buf) {
@@ -150,7 +222,9 @@ public final class MaidEntry {
                 buf.readLong(),
                 buf.readBoolean(),
                 buf.readVarInt(),
-                buf.readBoolean());
+                buf.readBoolean(),
+                buf.readVarInt(),
+                buf.readVarIntArray());
     }
 
     @Nullable

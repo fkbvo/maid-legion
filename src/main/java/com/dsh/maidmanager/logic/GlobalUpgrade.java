@@ -1,0 +1,93 @@
+package com.dsh.maidmanager.logic;
+
+/**
+ * The legion-wide abilities, bought once each with the player's banked P-points.
+ *
+ * <p><b>Why these are not just bigger numbers.</b> Buying stats with P-points would make this
+ * screen a duplicate of the per-maid one, so every entry here does something a per-maid upgrade
+ * cannot: it changes a rule, for every enrolled maid at once. Each is a single purchase with no
+ * levels.
+ *
+ * <p>Free of Minecraft types, so it can be unit tested without a registry.
+ */
+public enum GlobalUpgrade {
+
+    /**
+     * Doubles the experience every enrolled maid gains, from orbs and from P-point pickups.
+     * Applied by {@link MaidUpgradeHandler} through {@code MaidPickupEvent}.
+     */
+    EXP_BONUS("g_exp", 80, Kind.EVENT),
+
+    /**
+     * Removes TLM's death penalty outright (native behaviour is -2 favour).
+     *
+     * <p>Worth noting this exists because of a quirk: our death snapshot is taken at
+     * {@code LivingDeathEvent} with priority HIGHEST, while TLM applies the penalty from its own
+     * listener at the default priority. The snapshot therefore predates the penalty and would
+     * silently erase it on revive. {@link MaidProgressionService} re-applies the penalty on
+     * revive, and this ability is what removes it.
+     */
+    DEATH_FAVOR("g_favor", 100, Kind.EVENT),
+
+    /**
+     * While the owner is in creative flight, enrolled maids follow through the air instead of
+     * running along the ground. Driven by {@link MaidFlightHandler}.
+     */
+    FLIGHT("g_flight", 120, Kind.BEHAVIOR);
+
+    /** How the ability takes effect, so the service knows what to wire up. */
+    public enum Kind {
+        /** Read at event time. */
+        EVENT,
+        /** Needs a per-tick driver. */
+        BEHAVIOR
+    }
+
+    private final String id;
+    private final int powerCost;
+    private final Kind kind;
+
+    GlobalUpgrade(String id, int powerCost, Kind kind) {
+        this.id = id;
+        this.powerCost = powerCost;
+        this.kind = kind;
+    }
+
+    public String id() {
+        return id;
+    }
+
+    public String translationKey() {
+        return "gui.maid_legion.global." + id;
+    }
+
+    public String descriptionKey() {
+        return "gui.maid_legion.global." + id + ".desc";
+    }
+
+    /** Abilities are bought outright; there is no level curve. */
+    public int maxLevel() {
+        return 1;
+    }
+
+    /** Cost in banked P-points. */
+    public int powerCost() {
+        return powerCost;
+    }
+
+    public Kind kind() {
+        return kind;
+    }
+
+    public static GlobalUpgrade byId(String id) {
+        if (id == null) {
+            return null;
+        }
+        for (GlobalUpgrade upgrade : values()) {
+            if (upgrade.id.equals(id)) {
+                return upgrade;
+            }
+        }
+        return null;
+    }
+}

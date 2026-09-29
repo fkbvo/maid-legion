@@ -489,3 +489,59 @@ ItemFilm.filmToMaid(film, level, pos, player);  // 胶片 -> 女仆
 | 能拦截墓碑吗？ | **能**，`MaidTombstoneEvent` 是 `@Cancelable` |
 | 复活要什么材料？ | 胶片 + 青金石 + 金锭 + 红石 + 铁锭 + 煤炭，祭坛 power 0.5 |
 | 神龛是复活材料吗？ | **不是**，神龛是「只存 1 张胶片」的存储方块 |
+
+---
+
+## 七、1.2.0 期间的补充调研
+
+### 7.1 ⚠️ 死亡好感度惩罚的事件顺序（一个真实的坑）
+
+**结论：我们的死亡快照比 TLM 扣好感度更早，所以复活会把扣掉的分还回去。**
+
+事件链（已用 `javap -v` 读注解确认优先级）：
+
+```
+Forge LivingDeathEvent
+ ├─ MaidDeathHandler.onLivingDeath              @EventPriority.HIGHEST  ← 快照在这
+ └─ TLM event/EntityDeathEvent.onEntityDeath    @SubscribeEvent（无 priority → NORMAL）
+      └─ post MaidDeathEvent
+           └─ event/maid/MaidDeathFavorability.onDeath
+                └─ FavorabilityManager.apply(Type.DEATH)   → 好感度 −2
+```
+
+- TLM 的监听器**没有写 priority**，Forge 默认 `NORMAL`，排在 `HIGHEST` 之后。
+- 所以快照里存的是**扣分前**的好感度；`EntityMaid.load(data)` 会把它读回来。
+- **1.2.0 的修法**：复活后调用 `MaidProgressionService.applyDeathPenalty()`，
+  按 `Type.DEATH.getPoint()`（**读出来的，不写死 2**）补扣回去；
+  买了「阵亡好感度全免」能力则跳过。
+- 用 `FavorabilityManager.reduce(int)` 而不是 `setFavorability(int)`，
+  这样 TLM 自己的等级变更逻辑（改攻击/生命的 base 值）会正常跑。
+
+### 7.2 伤害联动的调研结论（枪械 / 魔法）
+
+| 目标 | 结论 |
+|---|---|
+| **TaCZ 枪械** | `com.tacz.guns.entity.EntityKineticBullet` **`extends Projectile`** → 走**原版 `Projectile.getOwner()`** 即可拿到射手。**不需要任何 TaCZ 依赖**，也不需要反射。 |
+| TaCZ 自带的钩子 | `com.tacz.guns.api.event.common.EntityHurtByGunEvent$Pre`（TLM 自己就用它）。但我们用不上——见上一条。 |
+| **万法皆通** | 它本身是**多魔法 mod 桥**（软依赖 Iron's / Ars Nouveau / Goety / Mana&Artifice / Psi / EbWizardry…），并有自己的伤害管线 `utils/MaidDamageProcessor`。 |
+| **已知盲区** | 万法皆通内含 **`utils/TrueDamageUtil`（真伤）**。真伤通常**绕过 `LivingHurtEvent`**，所以**部分法术可能吃不到伤害加成**。 |
+| **属性注册** | `MaidSpellEntityAttributes.onAttributeCreate(EntityAttributeCreationEvent)` 会给女仆注册它自己的属性——如果以后想做魔法专属强化，那些属性是**已经挂在女仆身上**的。 |
+| 我们的实现 | `LivingHurtEvent` + 攻击者解析（`getEntity()` 是女仆，或 `getDirectEntity()` 是 `Projectile` 且 `getOwner()` 是女仆）。一条规则覆盖近战 / 箭 / 弹幕 / 枪械 / 大部分法术。 |
+
+### 7.3 女仆身上实际可用的属性（用于强化映射）
+
+`EntityMaid` 用的是 **`LivingEntity.createLivingAttributes()`**（不是 `createMobAttributes()`），
+再自己加几个。所以完整集合是：
+
+| 来源 | 属性 |
+|---|---|
+| `LivingEntity` | `MAX_HEALTH`、`MOVEMENT_SPEED`、**`ARMOR`**、`ARMOR_TOUGHNESS`、`KNOCKBACK_RESISTANCE` |
+| TLM 自己加 | `ATTACK_DAMAGE`、`ATTACK_SPEED`、`ATTACK_KNOCKBACK`、`FOLLOW_RANGE`、`LUCK` |
+| TLM 自定义（8 个） | `MAID_PICKUP_RANGE`、`MAID_USE_ITEM_SPEED`、`MAID_CROSSBOW_ATTACK_SPEED`、`MAID_GUN_ATTACK_SPEED`、`MAID_SHOOT_COOLDOWN`、`MAID_TRIDENT_COOLDOWN`、`MAID_PASSIVE_USE_SHIELD_TICK`、`MAID_HUNGER` |
+
+> ❗ **护甲和移速是注册过的**，可以直接加强化。
+> ❗ 好感度升级用 `setBaseValue`，所以强化**必须用 `AttributeModifier`**（加法/乘基），
+> 否则会被好感度覆盖。
+> ❗ 修饰符必须用 `addTransientModifier`：等级的真源在我们的 SavedData 里，
+> permanent 会写进女仆自己的 NBT，下次应用时会**叠加两次**。
+

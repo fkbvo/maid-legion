@@ -146,6 +146,8 @@ public class C2SMaidActionPacket {
     public static void refresh(ServerPlayer player) {
         NetworkHandler.CHANNEL.send(
                 PacketDistributor.PLAYER.with(() -> player),
-                new S2CMaidListPacket(MaidManagerService.snapshot(player), MaidManagerService.forceLoadAllowed()));
+                new S2CMaidListPacket(MaidManagerService.snapshot(player),
+                        MaidManagerService.forceLoadAllowed(),
+                        MaidManagerService.progression(player)));
     }
 }

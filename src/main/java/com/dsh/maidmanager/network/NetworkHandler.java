@@ -40,8 +40,18 @@ public final class NetworkHandler {
         CHANNEL.registerMessage(id++, C2SReviveMaidPacket.class,
                 C2SReviveMaidPacket::encode, C2SReviveMaidPacket::decode, C2SReviveMaidPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(id, S2CActionResultPacket.class,
+        CHANNEL.registerMessage(id++, S2CActionResultPacket.class,
                 S2CActionResultPacket::encode, S2CActionResultPacket::decode, S2CActionResultPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, C2SUpgradePacket.class,
+                C2SUpgradePacket::encode, C2SUpgradePacket::decode, C2SUpgradePacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(id++, C2SPowerBankPacket.class,
+                C2SPowerBankPacket::encode, C2SPowerBankPacket::decode, C2SPowerBankPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(id, C2SOpenMaidGuiPacket.class,
+                C2SOpenMaidGuiPacket::encode, C2SOpenMaidGuiPacket::decode,
+                C2SOpenMaidGuiPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 }

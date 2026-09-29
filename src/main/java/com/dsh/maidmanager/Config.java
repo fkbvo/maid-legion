@@ -28,6 +28,10 @@ public final class Config {
         public final ForgeConfigSpec.IntValue summonIntervalTicks;
         public final ForgeConfigSpec.BooleanValue allowForceLoad;
         public final ForgeConfigSpec.IntValue forceLoadTimeoutTicks;
+        public final ForgeConfigSpec.BooleanValue enableUpgrades;
+        public final ForgeConfigSpec.DoubleValue maxBankedPower;
+        public final ForgeConfigSpec.DoubleValue autoDepositThreshold;
+        public final ForgeConfigSpec.BooleanValue enableFlightFollow;
 
         Common(ForgeConfigSpec.Builder builder) {
             builder.comment("Maid Legion settings").push("general");
@@ -52,6 +56,36 @@ public final class Config {
                     .comment("How long a temporary chunk ticket may live while waiting for a maid",
                             "to become available. Tickets are always released afterwards.")
                     .defineInRange("forceLoadTimeoutTicks", 100, 20, 1200);
+
+            builder.pop();
+
+            builder.comment("Upgrades bought with maid experience, and legion abilities bought",
+                            "with banked P-points.").push("upgrades");
+
+            enableUpgrades = builder
+                    .comment("Master switch for the upgrade and P-point bank screens.",
+                            "When false the buttons are shown but disabled.")
+                    .define("enableUpgrades", true);
+
+            maxBankedPower = builder
+                    .comment("Capacity of the Legion's P-point bank.",
+                            "TLM's own wallet is hard-capped at 5.0 and cannot be raised, so the",
+                            "bank is what actually gives P-points somewhere to accumulate.")
+                    .defineInRange("maxBankedPower", 300.0, 5.0, 100000.0);
+
+            autoDepositThreshold = builder
+                    .comment("Sweep the player's TLM wallet into the bank whenever it exceeds this.",
+                            "Keeps pickup room free so P-points bank instead of overflowing into",
+                            "vanilla experience. 0 drains the wallet completely;",
+                            "5.0 or above effectively disables the sweep.",
+                            "Players can also switch auto-deposit off per player in the panel.")
+                    .defineInRange("autoDepositThreshold", 1.0, 0.0, 5.0);
+
+            enableFlightFollow = builder
+                    .comment("Allow the flight-follow ability: while the owner is in creative",
+                            "flight, enrolled maids follow through the air.",
+                            "Turn off if it fights another mod's movement handling.")
+                    .define("enableFlightFollow", true);
 
             builder.pop();
         }

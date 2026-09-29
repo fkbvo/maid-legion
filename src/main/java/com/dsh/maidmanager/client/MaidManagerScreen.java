@@ -52,12 +52,22 @@ public class MaidManagerScreen extends Screen {
     /** Width of the favourite star column, left of the tick box. */
     private static final int STAR_W = 14;
 
+    // Footer button widths. Fixed rather than measured from the label, so a longer translation
+    // cannot push the row off screen - the wrap check uses these numbers.
+    private static final int OPEN_GUI_W = 110;
+    private static final int UPGRADE_W = 56;
+    private static final int SUMMON_W = 96;
+    private static final int STORE_W = 96;
+    private static final int REFRESH_W = 60;
+
     private final List<Row> rows = new ArrayList<>();
     private List<MaidEntry> entries = List.of();
     private EditBox searchBox;
     private Button summonButton;
     private Button storeButton;
     private Button favouritesButton;
+    private Button openGuiButton;
+    private Button upgradeButton;
     private double scroll;
     private int listTop;
     private int listBottom;
@@ -98,20 +108,74 @@ public class MaidManagerScreen extends Screen {
         });
         addRenderableWidget(this.searchBox);
 
-        int y = this.height - 28;
-        int w = 96;
-        int x = this.width / 2 - w - 6;
-        this.summonButton = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.summon"), b -> summonSelected())
-                .bounds(x, y, w, 20).build());
-        x += w + 6;
-        this.storeButton = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.store"), b -> storeSelected())
-                .bounds(x, y, w, 20).build());
-        x += w + 6;
-        addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.refresh"), b -> ClientInput.requestRefresh())
-                .bounds(x, y, 72, 20).build());
+        // Footer: five buttons, centred, wrapped onto two rows when the window is too narrow to
+        // hold them side by side. Widths are fixed rather than text-measured so the layout cannot
+        // shift when a translation changes.
+        int[] widths = {OPEN_GUI_W, UPGRADE_W, SUMMON_W, STORE_W, REFRESH_W};
+        int gap = 6;
+        int total = (widths.length - 1) * gap;
+        for (int w : widths) {
+            total += w;
+        }
+        boolean wrap = total > this.width - 16;
+        // A wrapped footer is taller, so the list has to stop higher up or the second row would
+        // be drawn over the last maid.
+        this.listBottom = this.height - (wrap ? FOOTER_HEIGHT * 2 - 8 : FOOTER_HEIGHT);
+
+        int row2Y = this.height - 28;
+        int row1Y = wrap ? row2Y - 24 : row2Y;
+
+        if (wrap) {
+            // Row 1: the two selection-based actions. Row 2: the batch actions.
+            int row1 = widths[0] + gap + widths[1];
+            int x = this.width / 2 - row1 / 2;
+            this.openGuiButton = addRenderableWidget(Button.builder(
+                            Component.translatable("gui.maid_legion.open_gui"),
+                            b -> openSelectedMaidGui())
+                    .bounds(x, row1Y, widths[0], 20).build());
+            this.upgradeButton = addRenderableWidget(Button.builder(
+                            Component.translatable("gui.maid_legion.upgrade"),
+                            b -> openUpgradeScreen())
+                    .bounds(x + widths[0] + gap, row1Y, widths[1], 20).build());
+            int row2 = widths[2] + gap + widths[3] + gap + widths[4];
+            x = this.width / 2 - row2 / 2;
+            this.summonButton = addRenderableWidget(Button.builder(
+                            Component.translatable("gui.maid_legion.summon"), b -> summonSelected())
+                    .bounds(x, row2Y, widths[2], 20).build());
+            x += widths[2] + gap;
+            this.storeButton = addRenderableWidget(Button.builder(
+                            Component.translatable("gui.maid_legion.store"), b -> storeSelected())
+                    .bounds(x, row2Y, widths[3], 20).build());
+            x += widths[3] + gap;
+            addRenderableWidget(Button.builder(
+                            Component.translatable("gui.maid_legion.refresh"),
+                            b -> ClientInput.requestRefresh())
+                    .bounds(x, row2Y, widths[4], 20).build());
+        } else {
+            int x = this.width / 2 - total / 2;
+            this.openGuiButton = addRenderableWidget(Button.builder(
+                            Component.translatable("gui.maid_legion.open_gui"),
+                            b -> openSelectedMaidGui())
+                    .bounds(x, row2Y, widths[0], 20).build());
+            x += widths[0] + gap;
+            this.upgradeButton = addRenderableWidget(Button.builder(
+                            Component.translatable("gui.maid_legion.upgrade"),
+                            b -> openUpgradeScreen())
+                    .bounds(x, row2Y, widths[1], 20).build());
+            x += widths[1] + gap;
+            this.summonButton = addRenderableWidget(Button.builder(
+                            Component.translatable("gui.maid_legion.summon"), b -> summonSelected())
+                    .bounds(x, row2Y, widths[2], 20).build());
+            x += widths[2] + gap;
+            this.storeButton = addRenderableWidget(Button.builder(
+                            Component.translatable("gui.maid_legion.store"), b -> storeSelected())
+                    .bounds(x, row2Y, widths[3], 20).build());
+            x += widths[3] + gap;
+            addRenderableWidget(Button.builder(
+                            Component.translatable("gui.maid_legion.refresh"),
+                            b -> ClientInput.requestRefresh())
+                    .bounds(x, row2Y, widths[4], 20).build());
+        }
 
         // There is deliberately no revive button here. Revive lives on the fallen maid's own
         // status badge, which turns into a clickable "revive" while the cursor is over it, so
@@ -120,22 +184,19 @@ public class MaidManagerScreen extends Screen {
 
         addRenderableWidget(Button.builder(
                         Component.translatable("gui.maid_legion.select_all"), b -> selectAll(true))
-                .bounds(listRight - 190, 22, 60, 16).build());
-        addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.invert"), b -> invert())
                 .bounds(listRight - 126, 22, 60, 16).build());
         addRenderableWidget(Button.builder(
                         Component.translatable("gui.maid_legion.clear"), b -> selectAll(false))
                 .bounds(listRight - 62, 22, 60, 16).build());
 
-        // A help button so the force-load explanation stays reachable after the one-time
-        // prompt has been accepted; otherwise a player who forgot what it meant has no way
-        // to look it up again.
+        // A help button opening the full usage guide. The force-load prompt is only one part of
+        // how the mod works, and a player who has forgotten the hotkeys or the states has
+        // nowhere else to look them up in game.
         addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.help"), b ->
-                                net.minecraft.client.Minecraft.getInstance().setScreen(
-                                        HeavyLoadWarningScreen.asHelp(this)))
-                .bounds(listRight - 224, 22, 30, 16).build());
+                        Component.translatable("gui.maid_legion.help"),
+                        b -> net.minecraft.client.Minecraft.getInstance().setScreen(
+                                new HelpScreen(this)))
+                .bounds(listRight - 160, 22, 30, 16).build());
 
         // Toggle that narrows the list to starred maids only.
         this.favouritesButton = addRenderableWidget(Button.builder(
@@ -200,12 +261,24 @@ public class MaidManagerScreen extends Screen {
         }
     }
 
-    private void invert() {
+    /**
+     * The one maid the selection-based footer buttons apply to, or null.
+     *
+     * <p>These buttons act on a single maid and have no sensible meaning for a batch. Returning
+     * null for any selection other than exactly one also gives the buttons their enable state, so
+     * "why is this greyed out" always has the same answer.
+     */
+    private MaidEntry soleSelected() {
+        MaidEntry found = null;
         for (Row row : rows) {
-            if (row.selectable()) {
-                ClientSelection.toggle(row.entry.id);
+            if (row.selectable() && ClientSelection.isSelected(row.entry.id)) {
+                if (found != null) {
+                    return null;
+                }
+                found = row.entry;
             }
         }
+        return found;
     }
 
     private List<UUID> selectedIds() {
@@ -277,6 +350,32 @@ public class MaidManagerScreen extends Screen {
                 new com.dsh.maidmanager.network.C2SReviveMaidPacket(entry.id));
     }
 
+    /**
+     * Asks the server to open the sole selected maid's own TLM GUI.
+     *
+     * <p>The server does the work, so this is deliberately fire-and-forget: she may be stored,
+     * unloaded or in another dimension, and all three are answered by the server rather than
+     * guessed at here.
+     */
+    private void openSelectedMaidGui() {
+        MaidEntry sole = soleSelected();
+        if (sole == null) {
+            return;
+        }
+        NetworkHandler.CHANNEL.sendToServer(
+                new com.dsh.maidmanager.network.C2SOpenMaidGuiPacket(sole.id));
+    }
+
+    /** Opens the two-tab upgrade panel, on the per-maid tab with the sole selection. */
+    private void openUpgradeScreen() {
+        MaidEntry sole = soleSelected();
+        if (sole == null) {
+            return;
+        }
+        net.minecraft.client.Minecraft.getInstance().setScreen(
+                new MaidUpgradeScreen(this, sole, entries));
+    }
+
     // ------------------------------------------------------------------
     // Rendering
     // ------------------------------------------------------------------
@@ -295,6 +394,16 @@ public class MaidManagerScreen extends Screen {
         }
         if (storeButton != null) {
             storeButton.active = hasStoreableSelected();
+        }
+        // Both new buttons act on one maid and need a genuine single selection. A dead maid still
+        // counts: the upgrade panel can sell her upgrades from her death record, and opening her
+        // GUI is the server's call to accept or refuse.
+        MaidEntry sole = soleSelected();
+        if (openGuiButton != null) {
+            openGuiButton.active = sole != null;
+        }
+        if (upgradeButton != null) {
+            upgradeButton.active = sole != null && sole.upgradable();
         }
 
         // Column headers first, so the toolbar widgets drawn by super.render() sit above them

@@ -1,0 +1,482 @@
+package com.dsh.maidmanager.client;
+
+import com.dsh.maidmanager.logic.GlobalUpgrade;
+import com.dsh.maidmanager.logic.MaidEntry;
+import com.dsh.maidmanager.logic.MaidUpgrade;
+import com.dsh.maidmanager.logic.ProgressionInfo;
+import com.dsh.maidmanager.network.C2SOpenMaidGuiPacket;
+import com.dsh.maidmanager.network.C2SPowerBankPacket;
+import com.dsh.maidmanager.network.C2SUpgradePacket;
+import com.dsh.maidmanager.network.NetworkHandler;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
+
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * The upgrade panel: two tabs sharing one window.
+ *
+ * <p>The split is deliberate and is the whole design. <b>Per-maid upgrades are bought with that
+ * maid's own experience and are numeric</b> - attack, health, armour and so on. <b>Legion
+ * abilities are bought with the player's banked P-points and change a rule rather than a number</b>
+ * - faster experience for everyone, waiving the death penalty, following the owner through the
+ * air. Selling stats for P-points would have made the second tab a duplicate of the first.
+ *
+ * <p>Two tabs rather than two windows because the terminal's footer already carries five buttons;
+ * a sixth and seventh would not fit. The legion tab is reachable without ticking anything, so it
+ * is never locked behind a single-maid selection.
+ *
+ * <p>Rendering stays to plain fills and text, matching the terminal, so the mod does not depend on
+ * TLM's GUI assets.
+ */
+public class MaidUpgradeScreen extends Screen {
+
+    private enum Tab {
+        SINGLE,
+        GLOBAL
+    }
+
+    private static final int TITLE_Y = 10;
+    private static final int SUBTITLE_Y = 28;
+    private static final int LIST_TOP_SINGLE = 58;
+    private static final int ROW_H = 26;
+    private static final int BAR_W = 120;
+    private static final int BAR_H = 8;
+
+    /** Column x-offsets, relative to the centred content box. */
+    private static final int COL_LEVEL = 150;
+    private static final int COL_BAR = 250;
+    private static final int COL_EFFECT = 390;
+    private static final int COL_COST = 560;
+    private static final int COL_BUTTON = 660;
+
+    private static final int GLOBAL_FUNDS_TOP = 50;
+    private static final int GLOBAL_FUNDS_H = 52;
+    private static final int GLOBAL_ROW_H = 52;
+
+    private static final int COLOUR_TITLE = 0xFFFFFF;
+    private static final int COLOUR_LABEL = 0xE0E0E0;
+    private static final int COLOUR_DIM = 0xA0A0A0;
+    private static final int COLOUR_FAINT = 0x707070;
+    private static final int COLOUR_GOLD = 0xFFCC00;
+    private static final int COLOUR_GREEN = 0x4CAF50;
+    private static final int COLOUR_RED = 0xE05252;
+    private static final int COLOUR_EXP = 0xAAFFAA;
+    private static final int COLOUR_BAR_BG = 0xFF181818;
+    private static final int COLOUR_BAR_FG = 0xFF4CAF50;
+    private static final int COLOUR_BAR_MAX = 0xFF78C878;
+
+    private final Screen parent;
+    private final List<MaidEntry> entries;
+    private MaidEntry maid;
+
+    private Tab tab = Tab.SINGLE;
+    private double scroll;
+    private int listTop;
+    private int listBottom;
+    private int contentLeft;
+    private int contentWidth;
+
+    private final Map<MaidUpgrade, Button> singleButtons = new EnumMap<>(MaidUpgrade.class);
+    private final Map<GlobalUpgrade, Button> globalButtons = new EnumMap<>(GlobalUpgrade.class);
+    private Button tabSingle;
+    private Button tabGlobal;
+
+    public MaidUpgradeScreen(Screen parent, MaidEntry maid, List<MaidEntry> entries) {
+        super(Component.translatable("gui.maid_legion.upgrade.title"));
+        this.parent = parent;
+        this.maid = maid;
+        this.entries = entries;
+    }
+
+    /** Server pushed a new snapshot: pick up the new levels and experience for this maid. */
+    public void updateEntries(List<MaidEntry> newEntries) {
+        MaidEntry refreshed = null;
+        for (MaidEntry candidate : newEntries) {
+            if (candidate.id.equals(maid.id)) {
+                refreshed = candidate;
+                break;
+            }
+        }
+        // She may have vanished from the roster entirely (enrolment removed, or another player's
+        // maid). Keep showing the stale row rather than crashing, but stop offering purchases.
+        if (refreshed != null) {
+            this.maid = refreshed;
+        }
+        this.rebuildWidgets();
+    }
+
+    private ProgressionInfo progression() {
+        return ClientPayloadHandlers.progression();
+    }
+
+    @Override
+    protected void init() {
+        singleButtons.clear();
+        globalButtons.clear();
+
+        this.contentWidth = Math.min(this.width - 20, COL_BUTTON + 90);
+        this.contentLeft = (this.width - contentWidth) / 2;
+        this.listTop = LIST_TOP_SINGLE;
+        // Footer holds the two tabs and Close.
+        this.listBottom = this.height - 40;
+
+        int tabsY = this.height - 30;
+        int tabW = 90;
+        this.tabSingle = addRenderableWidget(Button.builder(
+                        Component.translatable("gui.maid_legion.upgrade.tab_single"),
+                        b -> switchTab(Tab.SINGLE))
+                .bounds(this.width / 2 - tabW - 3, tabsY, tabW, 20).build());
+        this.tabGlobal = addRenderableWidget(Button.builder(
+                        Component.translatable("gui.maid_legion.upgrade.tab_global"),
+                        b -> switchTab(Tab.GLOBAL))
+                .bounds(this.width / 2 + 3, tabsY, tabW, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.maid_legion.close"),
+                        b -> Minecraft.getInstance().setScreen(parent))
+                .bounds(this.width - 84, tabsY, 74, 20).build());
+
+        if (tab == Tab.SINGLE) {
+            initSingleTab();
+        } else {
+            initGlobalTab();
+        }
+        rebuildWidgetsDone();
+    }
+
+    private void rebuildWidgetsDone() {
+        // Kept as a seam so tab state can be reflected on the buttons after they exist.
+        if (tabSingle != null) {
+            tabSingle.active = tab != Tab.SINGLE;
+        }
+        if (tabGlobal != null) {
+            tabGlobal.active = tab != Tab.GLOBAL;
+        }
+    }
+
+    private void switchTab(Tab next) {
+        if (this.tab == next) {
+            return;
+        }
+        this.tab = next;
+        this.scroll = 0;
+        this.rebuildWidgets();
+    }
+
+    // ------------------------------------------------------------------
+    // Per-maid tab
+    // ------------------------------------------------------------------
+
+    private void initSingleTab() {
+        int rowY = listTop;
+        for (MaidUpgrade upgrade : MaidUpgrade.values()) {
+            final MaidUpgrade target = upgrade;
+            Button button = addRenderableWidget(Button.builder(
+                            Component.translatable("gui.maid_legion.upgrade.buy"),
+                            b -> buySingle(target))
+                    .bounds(contentLeft + COL_BUTTON, 0, 60, 18).build());
+            singleButtons.put(upgrade, button);
+            rowY += ROW_H;
+        }
+        layoutSingleRows();
+    }
+
+    /**
+     * Positions the per-maid buttons, honouring the scroll offset.
+     *
+     * <p>The header can be short enough on a small GUI scale that nine rows do not fit, so the
+     * list scrolls and the buttons have to move with it - they are real widgets and cannot simply
+     * be drawn at an offset like the row text is.
+     */
+    private void layoutSingleRows() {
+        int visible = listBottom - listTop;
+        int total = MaidUpgrade.values().length * ROW_H;
+        double max = Math.max(0, total - visible);
+        scroll = Mth.clamp(scroll, 0, max);
+
+        int index = 0;
+        for (MaidUpgrade upgrade : MaidUpgrade.values()) {
+            Button button = singleButtons.get(upgrade);
+            if (button != null) {
+                int y = listTop + index * ROW_H - (int) scroll;
+                button.setY(y + 3);
+                button.visible = y + ROW_H > listTop && y < listBottom;
+            }
+            index++;
+        }
+    }
+
+    private void buySingle(MaidUpgrade upgrade) {
+        NetworkHandler.CHANNEL.sendToServer(new C2SUpgradePacket(maid.id, upgrade.id()));
+    }
+
+    // ------------------------------------------------------------------
+    // Legion tab
+    // ------------------------------------------------------------------
+
+    private void initGlobalTab() {
+        int y = GLOBAL_FUNDS_TOP + GLOBAL_FUNDS_H + 10;
+        for (GlobalUpgrade ability : GlobalUpgrade.values()) {
+            final GlobalUpgrade target = ability;
+            Button button = addRenderableWidget(Button.builder(
+                            Component.translatable("gui.maid_legion.upgrade.buy"),
+                            b -> buyGlobal(target))
+                    .bounds(contentLeft + contentWidth - 96, y + 14, 90, 20).build());
+            globalButtons.put(ability, button);
+            y += GLOBAL_ROW_H;
+        }
+        int tabsY = this.height - 30;
+        addRenderableWidget(Button.builder(
+                        Component.translatable("gui.maid_legion.bank.deposit"),
+                        b -> sendBank(C2SPowerBankPacket.Action.DEPOSIT))
+                .bounds(contentLeft + contentWidth - 320, GLOBAL_FUNDS_TOP + 8, 100, 18).build());
+        addRenderableWidget(Button.builder(
+                        Component.translatable("gui.maid_legion.bank.withdraw"),
+                        b -> sendBank(C2SPowerBankPacket.Action.WITHDRAW))
+                .bounds(contentLeft + contentWidth - 214, GLOBAL_FUNDS_TOP + 8, 100, 18).build());
+        addRenderableWidget(Button.builder(
+                        Component.translatable("gui.maid_legion.bank.auto"),
+                        b -> sendBank(C2SPowerBankPacket.Action.TOGGLE_AUTO))
+                .bounds(contentLeft + contentWidth - 320, GLOBAL_FUNDS_TOP + 28, 206, 18).build());
+    }
+
+    private void sendBank(C2SPowerBankPacket.Action action) {
+        NetworkHandler.CHANNEL.sendToServer(new C2SPowerBankPacket(action));
+    }
+
+    private void buyGlobal(GlobalUpgrade ability) {
+        NetworkHandler.CHANNEL.sendToServer(new C2SUpgradePacket(null, ability.id()));
+    }
+
+    // ------------------------------------------------------------------
+    // Rendering
+    // ------------------------------------------------------------------
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        renderBackground(graphics);
+        graphics.drawCenteredString(this.font, this.title, this.width / 2, TITLE_Y, COLOUR_TITLE);
+        refreshButtonStates();
+
+        if (tab == Tab.SINGLE) {
+            renderSingleTab(graphics, mouseX, mouseY);
+        } else {
+            renderGlobalTab(graphics, mouseX, mouseY);
+        }
+        super.render(graphics, mouseX, mouseY, partialTick);
+    }
+
+    private void refreshButtonStates() {
+        if (tab == Tab.SINGLE) {
+            for (MaidUpgrade upgrade : MaidUpgrade.values()) {
+                Button button = singleButtons.get(upgrade);
+                if (button == null) {
+                    continue;
+                }
+                int level = maid.levelOf(upgrade);
+                boolean maxed = level >= upgrade.maxLevel();
+                boolean affordable = maid.experience >= upgrade.costFor(level);
+                // Three distinct reasons a button is dark, so the label says which one.
+                button.setMessage(Component.translatable(maxed
+                        ? "gui.maid_legion.upgrade.maxed"
+                        : "gui.maid_legion.upgrade.buy"));
+                button.active = !maxed && affordable && maid.upgradable();
+            }
+        } else {
+            ProgressionInfo info = progression();
+            for (GlobalUpgrade ability : GlobalUpgrade.values()) {
+                Button button = globalButtons.get(ability);
+                if (button == null) {
+                    continue;
+                }
+                boolean owned = info.has(ability);
+                button.setMessage(Component.translatable(owned
+                        ? "gui.maid_legion.upgrade.owned"
+                        : "gui.maid_legion.upgrade.buy"));
+                button.active = !owned && info.bank() >= ability.powerCost();
+            }
+        }
+    }
+
+    private void renderSingleTab(GuiGraphics graphics, int mouseX, int mouseY) {
+        MaidEntry entry = this.maid;
+        String name = entry.name.getString();
+        graphics.drawString(this.font, name + "  #" + entry.shortId(), contentLeft, SUBTITLE_Y,
+                COLOUR_LABEL);
+        String expText = Component.translatable("gui.maid_legion.upgrade.experience",
+                String.format("%,d", entry.experience)).getString();
+        graphics.drawString(this.font, expText, contentLeft + contentWidth - this.font.width(expText),
+                SUBTITLE_Y, COLOUR_EXP);
+        graphics.drawString(this.font,
+                Component.translatable("gui.maid_legion.upgrade.currency_maid").getString(),
+                contentLeft, SUBTITLE_Y + 10, COLOUR_FAINT);
+
+        if (!entry.upgradable()) {
+            // UNLOADED maids live in TLM's world data; we cannot read or write their experience.
+            graphics.drawString(this.font,
+                    Component.translatable("gui.maid_legion.upgrade.unreachable").getString(),
+                    contentLeft, listTop + 4, COLOUR_RED);
+            return;
+        }
+
+        graphics.enableScissor(contentLeft - 4, listTop, contentLeft + contentWidth, listBottom);
+        int index = 0;
+        for (MaidUpgrade upgrade : MaidUpgrade.values()) {
+            int y = listTop + index * ROW_H - (int) scroll;
+            index++;
+            if (y + ROW_H < listTop || y > listBottom) {
+                continue;
+            }
+            if (index % 2 == 1) {
+                graphics.fill(contentLeft - 4, y, contentLeft + contentWidth, y + ROW_H - 2,
+                        0x18FFFFFF);
+            }
+            int level = entry.levelOf(upgrade);
+            int max = upgrade.maxLevel();
+
+            graphics.drawString(this.font,
+                    Component.translatable(upgrade.translationKey()).getString(),
+                    contentLeft + 4, y + 6, COLOUR_LABEL);
+            graphics.drawString(this.font, level + " / " + max,
+                    contentLeft + COL_LEVEL, y + 6,
+                    level >= max ? COLOUR_GREEN : COLOUR_GOLD);
+            renderBar(graphics, contentLeft + COL_BAR, y + 8, level, max);
+            graphics.drawString(this.font, effectText(upgrade, level).getString(),
+                    contentLeft + COL_EFFECT, y + 6,
+                    level > 0 ? COLOUR_LABEL : COLOUR_FAINT);
+
+            if (level < max) {
+                int cost = upgrade.costFor(level);
+                graphics.drawString(this.font,
+                        Component.translatable("gui.maid_legion.upgrade.next",
+                                String.format("%,d", cost)).getString(),
+                        contentLeft + COL_COST, y + 6,
+                        entry.experience >= cost ? COLOUR_DIM : COLOUR_RED);
+            } else {
+                graphics.drawString(this.font, "-", contentLeft + COL_COST, y + 6, COLOUR_FAINT);
+            }
+        }
+        graphics.disableScissor();
+    }
+
+    private void renderBar(GuiGraphics graphics, int x, int y, int level, int max) {
+        graphics.fill(x, y, x + BAR_W, y + BAR_H, COLOUR_BAR_BG);
+        if (level > 0) {
+            int filled = (int) (BAR_W * (level / (float) max));
+            graphics.fill(x + 1, y + 1, x + Math.max(2, filled), y + BAR_H - 1,
+                    level >= max ? COLOUR_BAR_MAX : COLOUR_BAR_FG);
+        }
+    }
+
+    private Component effectText(MaidUpgrade upgrade, int level) {
+        if (level <= 0) {
+            return Component.translatable("gui.maid_legion.upgrade.none");
+        }
+        String value = upgrade.displayAt(level);
+        if (upgrade.unit() == MaidUpgrade.Unit.PERCENT) {
+            return Component.literal("+" + value);
+        }
+        return Component.translatable("gui.maid_legion.upgrade.effect_flat", value,
+                Component.translatable("gui.maid_legion.unit." + upgrade.id()));
+    }
+
+    private void renderGlobalTab(GuiGraphics graphics, int mouseX, int mouseY) {
+        ProgressionInfo info = progression();
+
+        graphics.drawCenteredString(this.font,
+                Component.translatable("gui.maid_legion.upgrade.currency_legion"),
+                this.width / 2, SUBTITLE_Y, COLOUR_DIM);
+
+        int fundsTop = GLOBAL_FUNDS_TOP;
+        graphics.fill(contentLeft, fundsTop, contentLeft + contentWidth, fundsTop + GLOBAL_FUNDS_H,
+                0xA0000000);
+        graphics.drawString(this.font,
+                Component.translatable("gui.maid_legion.bank.wallet").getString(),
+                contentLeft + 8, fundsTop + 6, COLOUR_DIM);
+        graphics.drawString(this.font, String.format("%.2f P", info.wallet()),
+                contentLeft + 8, fundsTop + 20, COLOUR_GOLD);
+        // Calling out the cap prevents "why did my points disappear" - TLM inlines 5.0 into its
+        // own capability, so it genuinely cannot be raised.
+        graphics.drawString(this.font,
+                Component.translatable("gui.maid_legion.bank.wallet_cap").getString(),
+                contentLeft + 8, fundsTop + 34, COLOUR_FAINT);
+
+        graphics.drawString(this.font,
+                Component.translatable("gui.maid_legion.bank.bank").getString(),
+                contentLeft + 150, fundsTop + 6, COLOUR_DIM);
+        graphics.drawString(this.font,
+                String.format("%.1f / %.1f P", info.bank(), info.bankCap()),
+                contentLeft + 150, fundsTop + 20, COLOUR_GREEN);
+        int barX = contentLeft + 150;
+        int barW = 200;
+        graphics.fill(barX, fundsTop + 36, barX + barW, fundsTop + 42, COLOUR_BAR_BG);
+        if (info.bankCap() > 0.0F) {
+            int filled = (int) (barW * Math.min(1.0F, info.bank() / info.bankCap()));
+            graphics.fill(barX + 1, fundsTop + 37, barX + Math.max(2, filled), fundsTop + 41,
+                    COLOUR_BAR_FG);
+        }
+
+        String autoKey = info.autoDeposit()
+                ? "gui.maid_legion.bank.auto_on"
+                : "gui.maid_legion.bank.auto_off";
+        // Rewrite the auto button's label with the live state.
+        for (var widget : this.renderables) {
+            if (widget instanceof Button button
+                    && button.getMessage().getString()
+                    .equals(Component.translatable("gui.maid_legion.bank.auto").getString())) {
+                button.setMessage(Component.translatable(autoKey));
+            }
+        }
+
+        int y = fundsTop + GLOBAL_FUNDS_H + 10;
+        for (GlobalUpgrade ability : GlobalUpgrade.values()) {
+            boolean owned = info.has(ability);
+            if ((ability.ordinal() & 1) == 1) {
+                graphics.fill(contentLeft - 4, y, contentLeft + contentWidth, y + GLOBAL_ROW_H - 6,
+                        0x18FFFFFF);
+            }
+            graphics.drawString(this.font,
+                    Component.translatable(ability.translationKey()).getString(),
+                    contentLeft + 4, y + 4, COLOUR_TITLE);
+            graphics.drawString(this.font,
+                    Component.translatable(ability.descriptionKey()).getString(),
+                    contentLeft + 150, y + 4, COLOUR_LABEL);
+            Component status = Component.translatable(owned
+                    ? "gui.maid_legion.global.status_owned"
+                    : "gui.maid_legion.global.status_locked");
+            graphics.drawString(this.font, status.getString(), contentLeft + 150, y + 18,
+                    owned ? COLOUR_GREEN : COLOUR_FAINT);
+            String cost = ability.powerCost() + " P";
+            graphics.drawString(this.font, cost,
+                    contentLeft + contentWidth - 150, y + 16,
+                    owned ? COLOUR_FAINT : COLOUR_GOLD);
+            y += GLOBAL_ROW_H;
+        }
+
+        String scope = Component.translatable("gui.maid_legion.global.scope",
+                String.valueOf(entries.size())).getString();
+        graphics.drawString(this.font, scope, contentLeft, y + 2, COLOUR_DIM);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (tab == Tab.SINGLE) {
+            int total = MaidUpgrade.values().length * ROW_H;
+            double max = Math.max(0, total - (listBottom - listTop));
+            this.scroll = Mth.clamp(this.scroll - delta * ROW_H, 0, max);
+            layoutSingleRows();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    @Override
+    public void onClose() {
+        Minecraft.getInstance().setScreen(parent);
+    }
+}
