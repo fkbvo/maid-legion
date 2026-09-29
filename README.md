@@ -1,27 +1,11 @@
 # 女仆军团（Maid Legion）
 
-一个 **Minecraft 1.20 / 1.20.1 Forge** 的《车万女仆》（Touhou Little Maid）伴生模组。
+一个 **Minecraft 1.21.1 NeoForge** 的《车万女仆》（Touhou Little Maid）伴生模组。
 
 按一个键呼出全屏面板，像指挥一支小队一样指挥你的女仆：战斗中**一键召唤**，战斗结束后**一键收回**。
 
 > **本模组的定位是「战斗指挥」，不是「仓库管理」。**
 > 目标是在战斗的几秒内完成编队调度，而不是离线整理女仆数据。
-
-## 支持版本
-
-| | 版本 |
-| --- | --- |
-| **Minecraft** | **1.20 和 1.20.1**（同一个 jar 通用） |
-| Forge | 47.x（1.20 / 1.20.1 用的就是这一系） |
-| 车万女仆 | 1.5.0+（Forge 版） |
-
-> 1.20 与 1.20.1 之间原版 API 差异极小，车万女仆自己也是**一个 jar 同时覆盖这两个版本**
-> （它的声明同样是 `[1.20,1.20.2)`），所以本模组采用相同的做法。
-
-> 本模组**不包含任何 TLM 的代码或美术素材**，仅通过其公开 API 交互。TLM 代码部分为 MIT，
-> 素材部分为 CC BY-NC-SA 4.0，本项目只调用代码 API，因此不受素材条款约束。
-
----
 
 ## 更新日志
 
@@ -34,6 +18,43 @@
 ### 1.0.0
 
 首个版本：全屏面板、一键召唤 / 收回、四态显示、逐女仆强加载开关、收藏置顶。
+
+---
+
+## 和其他女仆管理模组有什么不同
+
+车万女仆生态里已有一个功能相近的模组
+[车万女仆：便携管理](https://www.mcmod.cn/class/29619.html)（Touhou Little Maid: Maid Manager，作者 QCQ171-prime）。
+两者都能集中管理 / 远程召唤 / 批量派遣，**但设计取向不同**：
+
+| | 女仆军团（本模组） | 便携管理 |
+| --- | --- | --- |
+| 打开方式 | **快捷键直接开面板**，不占用物品栏 | 需要先合成「女仆管理平板」 |
+| 定位 | **战斗指挥**——编队调度、一键进出场 | 综合管理——含背包、任务编辑 |
+| 部署方式 | 无实体道具，纯面板 | 「女仆锚点」方块决定传送点 |
+| 强加载 | **逐女仆开关**，可让特定女仆常驻某区块 | 通过锚点方块间接实现 |
+| 强化方向 | 计划用 **P 点**在面板内直接强化女仆 | 无 |
+
+> 简单说：**要打仗用本模组，要整理用那个。** 两者可以共存（不会崩溃），
+> 但**不建议对同一只女仆同时使用两边的「收起」功能**——各存一份 NBT，放出时可能重复。
+
+> 📌 **本分支是 1.21 版。** 1.20 / 1.20.1（Forge）请看 [`1.20` 分支](../../tree/1.20)。
+
+## 支持版本
+
+| | 版本 |
+| --- | --- |
+| **Minecraft** | **1.21.1** |
+| 加载器 | **NeoForge 21.1.x** |
+| 车万女仆 | 1.5.0+（**NeoForge** 版） |
+| JDK（自行构建时） | 21 |
+
+> ⚠️ **1.21 只有 NeoForge，没有 Forge。** Forge 从未发布 1.21 版本，车万女仆在 1.21.1 上
+> 也**只提供 NeoForge 构建**（`touhoulittlemaid-1.5.3-neoforge+mc1.21.1.jar`）。
+> 因此本分支的加载器是 NeoForge，与 1.20 分支的 Forge 版本**不通用**，jar 也**不能混装**。
+
+> 本模组**不包含任何 TLM 的代码或美术素材**，仅通过其公开 API 交互。TLM 代码部分为 MIT，
+> 素材部分为 CC BY-NC-SA 4.0，本项目只调用代码 API，因此不受素材条款约束。
 
 ---
 
@@ -178,6 +199,9 @@
 > **她的装备不会丢**：护甲、主副手、女仆背包、饰品、隐藏栏、任务栏、经验——
 > 这些本来就在女仆的存档数据里，所以复活后**原样回来**，不需要你重新穿装备。
 
+> **Curios 饰品也保得住**：它们不在女仆自己的存档数据里（而在 Curios 的能力中），所以本模组
+> 在**死亡瞬间**单独取出并清空，复活时**放回原来那一格**。装没装 Curios 都能正常工作。
+
 > ⚠️ **你自己没编入军团的女仆不受影响**，仍按 TLM 原生方式生成墓碑。
 
 ### 复活方式
@@ -231,14 +255,20 @@ TLM 自己有一个机制：**区块卸载前**，如果女仆是同维度、且
 
 ### 实现方式（为什么是安全的）
 
-用的是 Forge 的 `ForgeChunkManager.forceChunk`，**不是**原版的 `setChunkForced`：
+用的是 NeoForge 的**区块票据（Ticket）**，**不是**原版的 `setChunkForced`：
 
-| | `setChunkForced`（不用） | `ForgeChunkManager`（在用） |
+| | `setChunkForced`（不用） | NeoForge 区块票据（在用） |
 | --- | --- | --- |
 | 存储 | 写进存档 `forcedchunks.dat` | 运行时票据，不写存档 |
-| 归属 | 无归属，谁都清不掉 | **按女仆 UUID + 模组 ID** 记账 |
+| 归属 | 无归属，谁都清不掉 | **按女仆 UUID + 控制器 ID** 记账 |
 | 女仆死亡/删除 | 区块**永久残留在加载** | 票据随实体自动失效，**不会泄漏** |
 | 关闭开关 | 无效 | 立即释放 |
+
+> 🔧 **1.21 的实现变化**：1.20 分支用的是 Forge 的 `ForgeChunkManager.forceChunk`。
+> 1.21 的 NeoForge 删掉了整个 `ForgeChunkManager`，替代品是
+> `net.neoforged.neoforge.common.world.chunk.TicketController`——方法签名几乎一样，
+> 但它必须先在 `RegisterTicketControllersEvent` 里注册才能用（本模组已在模组主类里注册）。
+> 注意这不是原版的 `setChunkForced`，两者在存档写入和归属记账上完全不同。
 
 另外还有一层保险：**每 20 tick 重新确认一次**，女仆走到新区块会自动改跟；服务器重启后会按开关状态**自动重新加载**，不会因为重启就失效。
 
@@ -261,14 +291,17 @@ TLM 自己有一个机制：**区块卸载前**，如果女仆是同维度、且
 
 ## 安装
 
-1. 安装 **Minecraft 1.20 或 1.20.1**，以及对应的 **Forge 47.x**
-2. 安装 **车万女仆（Touhou Little Maid）1.5.0+** Forge 版（`touhou_little_maid`）
-3. 下载 **[`maid_legion-1.1.0-forge+mc1.20.1.jar`](https://github.com/fkbvo/maid-legion/releases/download/v1.1.0%2Bmc1.20.1/maid_legion-1.1.0-forge%2Bmc1.20.1.jar)**，放进 `mods/`
+1. 安装 **Minecraft 1.21.1**，以及 **NeoForge 21.1.x**
+2. 安装 **车万女仆（Touhou Little Maid）1.5.0+** 的 **NeoForge** 版（`touhou_little_maid`）
+3. 下载 **[`maid_legion-1.1.0-neoforge+mc1.21.1.jar`](https://github.com/fkbvo/maid-legion/releases/download/v1.1.0%2Bmc1.21.1/maid_legion-1.1.0-neoforge%2Bmc1.21.1.jar)**，放进 `mods/`
 
-> 全部版本见 **[Releases](https://github.com/fkbvo/maid-legion/releases)**。这是 1.20 / 1.20.1（Forge）的构建；
-> 1.21.1（NeoForge）请到 Releases 里找另一个。
+> 全部版本见 **[Releases](https://github.com/fkbvo/maid-legion/releases)**。这是 1.21.1（NeoForge）的构建；
+> 1.20 / 1.20.1（Forge）请到 Releases 里找另一个。
 
 三者缺一不可：本模组依赖车万女仆，没装会在启动时报缺失依赖。
+
+> ⚠️ 第 2 步**必须**下 NeoForge 版（文件名带 `neoforge`）。下成 Forge 版（带 `forge`）
+> 是 1.20.1 用的，在 1.21.1 上装不上，游戏也起不来。
 
 ---
 
@@ -287,7 +320,7 @@ TLM 自己有一个机制：**区块卸载前**，如果女仆是同维度、且
 
 ## 从源码构建
 
-需要 **JDK 17**。
+需要 **JDK 21**（1.21 起 Minecraft 要求 Java 21；1.20 分支用的是 17）。
 
 ```bash
 # Windows
@@ -297,13 +330,14 @@ gradlew.bat build
 gradlew.bat runClient
 ```
 
-产物：`build/libs/maid_legion-1.1.0-forge+mc1.20.1.jar`
+产物：`build/libs/maid_legion-1.1.0-neoforge+mc1.21.1.jar`
 
 文件名格式为 `<模组id>-<版本>-<加载器>+mc<MC版本>`，与车万女仆官方的
-`touhoulittlemaid-1.5.3-forge+mc1.20.1.jar` 保持一致的风格。
+`touhoulittlemaid-1.5.3-neoforge+mc1.21.1.jar` 保持一致的风格。
 
-> 本模组是 **Forge 专用**的（用到了 Forge 的 `SimpleChannel`、`ForgeChunkManager`、
-> `@Mod` 等 API，这些在 Fabric 上不存在），所以文件名里的 `forge` 是准确的。
+> 本模组在 1.21 上是 **NeoForge 专用**的（用到了 NeoForge 的 `PayloadRegistrar`、
+> `TicketController`、`ModConfigSpec` 等 API）。**Forge 没有 1.21 版本**，
+> 所以文件名里的 `neoforge` 是准确的。
 > 若日后移植到别的加载器，把 `gradle.properties` 里的 `mod_loader` 改掉即可，
 > 文件名会自动跟着变。
 
@@ -313,14 +347,14 @@ TLM **没有**发布到任何公开 Maven 仓库，本项目用 `flatDir` 从 `l
 **这个 jar 不在本仓库里**（它属于 TLM 作者，23 MB，不应被转载），所以克隆后需要自己放一份：
 
 1. 从 [CurseForge](https://www.curseforge.com/minecraft/mc-mods/touhou-little-maid) 或
-   [Modrinth](https://modrinth.com/mod/touhou-little-maid) 下载 **TLM 1.20.1 Forge** 版
+   [Modrinth](https://modrinth.com/mod/touhou-little-maid) 下载 **TLM 1.21.1 NeoForge** 版
 2. **原样**放进 `libs/`，文件名不要改。`flatDir` 是按 `名字-版本.jar` 查找的，
    带额外的前缀会导致找不到
 
 即：
 
 ```
-libs/touhoulittlemaid-1.5.3-forge+mc1.20.1.jar
+libs/touhoulittlemaid-1.5.3-neoforge+mc1.21.1.jar
 ```
 
 > ⚠️ 注意：`gradle.properties` 里坐标写的是 `tlm:touhoulittlemaid:...`，但 `flatDir`
@@ -330,6 +364,39 @@ libs/touhoulittlemaid-1.5.3-forge+mc1.20.1.jar
 换 TLM 版本时，改文件名并同步修改 `build.gradle` 里的 `compileOnly` / `runtimeOnly` 坐标。
 
 这个 jar **不会**被打包进产物（用的是 `compileOnly` + `runtimeOnly`）。
+
+> 💡 1.20 和 1.21 两个分支的 `libs/` 可以各放一份 TLM，互不干扰。
+
+### 可选：代理与 JDK 路径
+
+这两项**默认全部关闭**，克隆下来直接 `gradlew build` 即可，无需任何配置。
+
+**代理**——只有你的网络无法直连 `maven.neoforged.net` 时才需要。典型症状是构建报
+`Connection reset` 或 `SSL peer shut down incorrectly`：
+
+```bash
+# 环境变量（推荐，不进版本库）
+set MAID_LEGION_PROXY=127.0.0.1:7897        # Windows
+export MAID_LEGION_PROXY=127.0.0.1:7897     # Linux/macOS
+
+# 或命令行临时覆盖
+gradlew.bat build -Pproxy=127.0.0.1:7897
+```
+
+也可以写进 `gradle.properties` 的 `proxy=`（自带注释，取消注释即可），但那样会把你的
+代理地址提交到仓库，**不建议**。
+
+> 为什么不能简单地设一个全局代理？因为实测这里 **Mojang 的 CDN 反而是直连更稳**，
+> 走代理会握手失败。所以脚本会自动把 Mojang / Gradle / Maven Central / Parchment
+> 加进 `nonProxyHosts`，**只有 NeoForged 走代理**。格式写错会明确报错而不是静默忽略。
+
+**JDK 路径**——通常不用填，Gradle 会自己找（`JAVA_HOME`、系统、或自动下载）。
+只有自动探测挑错了 JDK 时才需要：
+
+```bash
+set MAID_LEGION_JDK_PATHS=/path/to/jdk-21
+gradlew.bat build -Pjdk_paths=/path/to/jdk-21
+```
 
 ---
 
@@ -346,7 +413,7 @@ libs/touhoulittlemaid-1.5.3-forge+mc1.20.1.jar
 ## 已知限制
 
 - 只管理**自己的**女仆（`isOwnedBy` 校验），不能操作他人的。
-- 女仆**死亡留下的墓碑**不在此面板管理，请用 TLM 自己的方式处理。
+- 女仆**死亡留下的墓碑**不在此面板管理，请用 TLM 自己的方式处理（**已编入军团的女仆不生成墓碑**，见上）。
 - 跨维度召唤会让女仆**离开她原本的工作点**。如果你希望她长期驻守某地，请不要对她开启强加载，
   或召唤后用 TLM 的原生方式重新安排她的家/工作点。
 - 若 TLM 未来大改内部 API，本模组会在启动时自检并**降级为「只显示在线女仆」**，而不是崩溃。
@@ -355,9 +422,35 @@ libs/touhoulittlemaid-1.5.3-forge+mc1.20.1.jar
 
 ---
 
-## 许可
+## 从 1.20 移植到 1.21 改了什么
 
-MIT。
+功能、界面、交互**完全一致**，改的都是 1.21 平台层的 API。记录在此便于日后升级参考：
+
+| 方面 | 1.20 / Forge | 1.21.1 / NeoForge |
+| --- | --- | --- |
+| 元数据文件 | `META-INF/mods.toml` | **`META-INF/neoforge.mods.toml`** |
+| 依赖声明字段 | `mandatory = true` | 仍可用，但 NeoForge 推荐 `type = "required"` |
+| 事件总线 | `MinecraftForge.EVENT_BUS` | `NeoForge.EVENT_BUS` |
+| 网络 | `SimpleChannel` + 数字 id + `NetworkEvent.Context` | **`CustomPacketPayload` + `PayloadRegistrar`**，用 `ResourceLocation` 当 id |
+| 发消息 | `PacketDistributor.PLAYER.with(() -> p)` | `PacketDistributor.sendToPlayer(p, msg)` |
+| 配置 | `ForgeConfigSpec`（返回 commons-lang `Pair`） | `ModConfigSpec`（**仍然**返回 commons-lang `Pair`） |
+| 区块加载 | `ForgeChunkManager.forceChunk(...)` | `TicketController.forceChunk(...)`，**需先注册控制器** |
+| `SavedData` | `load(tag)` / `save(tag)` | 加 `HolderLookup.Provider` 参数；`computeIfAbsent` 改收 `SavedData.Factory` |
+| 按键事件 | `InputEvent.Key` | `ClientTickEvent.Post` + `consumeClick()` |
+| 滚动事件 | `mouseScrolled(x, y, delta)` | `mouseScrolled(x, y, scrollX, scrollY)` |
+| 背景渲染 | `Screen.renderBackground(GuiGraphics)` | 只能由 `super.render()` 内部触发 |
+| 组件序列化 | `buf.writeComponent(c)` | `ComponentSerialization.STREAM_CODEC.encode(buf, c)` |
+| `ItemStack` NBT | `stack.getTag()` | `stack.get(DataComponents.CUSTOM_DATA)` |
+| 资源包版本 | `pack_format: 15` | `pack_format: 34` |
+| 构建插件 | ForgeGradle 6 + Parchment | **NeoGradle 7** + Parchment |
+| Gradle / JDK | 8.8 / 17 | **8.13 / 21** |
+
+> 逻辑层（`MaidManagerService`、`MaidEntry`、`MaidRegistry`、`MaidStorage`）与客户端层
+> 几乎原样复用，改动集中在框架对接处。
+
+> ⚠️ 构建注意：若所在网络无法直连 `maven.neoforged.net`，需要按上文「可选：代理与 JDK 路径」
+> 配置代理，否则会报 `SSL peer shut down incorrectly` 之类的握手错误。
+> 代理是**可选且默认关闭**的，脚本里没有任何硬编码的机器相关配置。
 
 ---
 
@@ -365,3 +458,9 @@ MIT。
 
 - [TLM P 点与女仆成长机制](docs/TLM-P点与女仆成长机制.md) —— 反编译 TLM 1.5.3 源码整理的
   P 点、女仆经验、好感度等级、死亡/墓碑/复活流程，供后续强化面板设计参考。
+
+---
+
+## 许可
+
+MIT。
