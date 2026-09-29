@@ -251,19 +251,13 @@ public final class MaidManagerService {
         return true;
     }
 
-    /** A revive that is waiting out its delay. */
-    private record PendingRevive(UUID ownerId, UUID maidId, long readyAtTick, boolean useShrines) {
-    }
-
-    private static final Map<UUID, PendingRevive> PENDING_REVIVES =
-            new java.util.concurrent.ConcurrentHashMap<>();
-
     /**
      * Starts a revive: validates, takes payment, then waits out the delay.
      *
      * <p>Payment is taken up front rather than on completion, so a player cannot start a
-     * revive, walk away, and keep the materials. If the delay is interrupted (server stop,
-     * owner leaving) the materials are refunded by {@link #tickPendingRevives}.
+     * revive, walk away, and keep the materials. The in-flight cast is recorded in
+     * {@link MaidDeathStorage} rather than in memory, so a server restart mid-cast resumes it
+     * instead of silently swallowing the payment.
      *
      * @return a result describing what happened, so the GUI can report it
      */
@@ -276,7 +270,7 @@ public final class MaidManagerService {
         if (dead == null) {
             return ReviveResult.NOT_DEAD;
         }
-        if (PENDING_REVIVES.containsKey(maidId)) {
+        if (storage.isRevivePending(maidId)) {
             return ReviveResult.ALREADY_PENDING;
         }
         // Reviving across dimensions would drop her at the wrong place, so require proximity
@@ -286,43 +280,64 @@ public final class MaidManagerService {
         }
 
         long readyAt = player.getServer().getTickCount() + reviveDelayTicks(dead.deathCount());
-        PENDING_REVIVES.put(maidId, new PendingRevive(player.getUUID(), maidId, readyAt, useShrines));
+        storage.startRevive(maidId, readyAt, useShrines);
         player.displayClientMessage(Component.translatable("message.maid_legion.revive_started",
                 dead.name(), reviveDelayTicks(dead.deathCount()) / 20), true);
         return ReviveResult.STARTED;
     }
 
-    /** Advances pending revives; completes one when its delay elapses. */
+    /**
+     * Advances pending revives; completes one when its delay elapses.
+     *
+     * <p>Reads the casts from {@link MaidDeathStorage}, so ones started before a restart are
+     * picked up again. The ready tick is world time, which keeps counting across a restart, so
+     * a long cast is not reset - it simply finishes on schedule.
+     */
     public static void tickPendingRevives(MinecraftServer server) {
-        if (PENDING_REVIVES.isEmpty()) {
+        MaidDeathStorage storage = MaidDeathStorage.get(server);
+        Map<UUID, MaidDeathStorage.PendingRevive> pending = storage.pendingRevives();
+        if (pending.isEmpty()) {
             return;
         }
         long now = server.getTickCount();
-        var iterator = PENDING_REVIVES.entrySet().iterator();
-        while (iterator.hasNext()) {
-            var entry = iterator.next();
-            PendingRevive pending = entry.getValue();
-            ServerPlayer owner = server.getPlayerList().getPlayer(pending.ownerId());
+        for (var entry : pending.entrySet()) {
+            UUID maidId = entry.getKey();
+            MaidDeathStorage.PendingRevive revive = entry.getValue();
+
+            // Re-resolve the owner from the death record, so a cast survives a restart even
+            // though we no longer hold the player object that started it.
+            ServerPlayer owner = findOwnerOfDeadMaid(server, maidId);
             if (owner == null) {
-                // Owner gone: refund and drop the request rather than stranding the payment.
-                refundRevive(server, pending);
-                iterator.remove();
+                // Owner has not logged back in yet. Leave the cast alone: it is already paid
+                // for, and clearing it here would destroy the payment this change protects.
                 continue;
             }
-            if (now < pending.readyAtTick()) {
+            if (now < revive.readyAtTick()) {
                 continue;
             }
-            iterator.remove();
-            if (finishRevive(owner, pending.maidId())) {
+            storage.clearRevive(maidId);
+            if (finishRevive(owner, maidId)) {
                 owner.displayClientMessage(
                         Component.translatable("message.maid_legion.revive_done"), true);
             } else {
                 // Placement failed: give the materials back so the attempt is not wasted.
-                refundRevive(server, pending);
+                refundRevive(server, owner, revive.useShrines());
                 owner.sendSystemMessage(Component.translatable("message.maid_legion.revive_failed"));
             }
             com.dsh.maidmanager.network.MaidActionHandler.refresh(owner);
         }
+    }
+
+    /** Finds the online player who owns this dead maid's record, or null if they are away. */
+    @Nullable
+    private static ServerPlayer findOwnerOfDeadMaid(MinecraftServer server, UUID maidId) {
+        MaidDeathStorage storage = MaidDeathStorage.get(server);
+        for (ServerPlayer candidate : server.getPlayerList().getPlayers()) {
+            if (storage.get(candidate.getUUID(), maidId) != null) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     /**
@@ -370,19 +385,27 @@ public final class MaidManagerService {
     }
 
     /** Gives back whatever {@link #payForRevive} took. */
-    private static void refundRevive(MinecraftServer server, PendingRevive pending) {
-        ServerPlayer owner = server.getPlayerList().getPlayer(pending.ownerId());
-        if (owner == null) {
-            return;
-        }
-        if (pending.useShrines()) {
-            owner.getInventory().add(new ItemStack(
+    /**
+     * Gives back whatever {@link #payForRevive} took.
+     *
+     * <p>Takes the player directly rather than looking them up from the cast, because the cast
+     * no longer stores an owner id - it survives restarts, so the player object that started it
+     * may be long gone. Overflow is dropped at their feet rather than discarded, so a full
+     * inventory cannot quietly eat the refund.
+     */
+    private static void refundRevive(MinecraftServer server, ServerPlayer owner, boolean useShrines) {
+        if (useShrines) {
+            ItemStack shrines = new ItemStack(
                     com.github.tartaricacid.touhoulittlemaid.init.InitBlocks.SHRINE.get().asItem(),
-                    SHRINE_ALTERNATIVE_COUNT));
+                    SHRINE_ALTERNATIVE_COUNT);
+            if (!owner.getInventory().add(shrines)) {
+                owner.drop(shrines, false);
+            }
         } else {
             for (ItemStack required : REVIVE_MATERIALS) {
-                if (!owner.getInventory().add(required.copy())) {
-                    owner.drop(required.copy(), false);
+                ItemStack copy = required.copy();
+                if (!owner.getInventory().add(copy)) {
+                    owner.drop(copy, false);
                 }
             }
         }
