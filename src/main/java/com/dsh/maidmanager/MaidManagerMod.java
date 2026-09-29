@@ -72,6 +72,7 @@ public final class MaidManagerMod {
             return;
         }
         MaidManagerService.tickPendingSummons(server);
+        MaidManagerService.tickPendingRevives(server);
         // Re-assert held chunks about once a second; cheap, and covers maids that moved.
         if (server.getTickCount() % 20 == 0) {
             MaidManagerService.tickForceLoadedMaids(server);

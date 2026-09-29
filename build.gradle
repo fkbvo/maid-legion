@@ -132,8 +132,12 @@ repositories {
     // TLM is not published to any Maven repository, so it is resolved from a local
     // flat-dir repo. This form (rather than files(...)) is what lets ForgeGradle
     // deobfuscate the jar, which is required for its API to be usable at compile time.
+    // Pointed at a version-specific subdirectory rather than all of libs/, because libs/
+    // legitimately holds one jar per branch (1.20 Forge and 1.21 NeoForge). flatDir matches
+    // on filename and both TLM jars share the name pattern touhoulittlemaid-<version>.jar, so
+    // a shared directory would let the wrong loader's build be picked.
     flatDir {
-        dirs 'libs'
+        dirs 'libs/mc1.20.1'
     }
     mavenCentral()
 }
@@ -148,6 +152,10 @@ dependencies {
     runtimeOnly fg.deobf("tlm:touhoulittlemaid:1.5.3-forge+mc1.20.1")
 
     testImplementation 'junit:junit:4.13.2'
+    // TLM is compileOnly, so it is missing from the test compile classpath even though the
+    // tests reference EntityMaid and its item types.
+    testCompileOnly fg.deobf("tlm:touhoulittlemaid:1.5.3-forge+mc1.20.1")
+    testRuntimeOnly fg.deobf("tlm:touhoulittlemaid:1.5.3-forge+mc1.20.1")
 }
 
 tasks.named('processResources', ProcessResources).configure {

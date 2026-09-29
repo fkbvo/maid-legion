@@ -57,6 +57,8 @@ public class MaidManagerScreen extends Screen {
     private EditBox searchBox;
     private Button summonButton;
     private Button storeButton;
+    private Button reviveButton;
+    private Button reviveShrinesButton;
     private Button favouritesButton;
     private double scroll;
     private int listTop;
@@ -112,6 +114,17 @@ public class MaidManagerScreen extends Screen {
         addRenderableWidget(Button.builder(
                         Component.translatable("gui.maid_legion.refresh"), b -> ClientInput.requestRefresh())
                 .bounds(x, y, 72, 20).build());
+
+        // Revive sits on its own row below the other actions: it consumes a real material
+        // cost and only applies to fallen maids, so it should not sit shoulder-to-shoulder
+        // with the everyday summon/store pair.
+        this.reviveButton = addRenderableWidget(Button.builder(
+                        Component.translatable("gui.maid_legion.revive"), b -> reviveSelected(false))
+                .bounds(this.width / 2 - 102, y - 24, 96, 20).build());
+        this.reviveShrinesButton = addRenderableWidget(Button.builder(
+                        Component.translatable("gui.maid_legion.revive.shrines"),
+                        b -> reviveSelected(true))
+                .bounds(this.width / 2 + 6, y - 24, 96, 20).build());
 
         addRenderableWidget(Button.builder(
                         Component.translatable("gui.maid_legion.select_all"), b -> selectAll(true))
@@ -229,6 +242,44 @@ public class MaidManagerScreen extends Screen {
         ClientInput.sendAction(C2SMaidActionPacket.Action.STORE, ids);
     }
 
+    /** True when at least one selected row is a fallen maid. */
+    private boolean hasDeadSelected() {
+        for (Row row : rows) {
+            if (row.entry.revivable() && ClientSelection.isSelected(row.entry.id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Revives every selected maid that is actually dead.
+     *
+     * <p>Non-dead selections are filtered out here rather than sent and rejected, so mixing a
+     * live maid and a fallen one into the same selection does the sensible thing instead of
+     * failing the whole batch.
+     */
+    private void reviveSelected(boolean useShrines) {
+        int sent = 0;
+        for (UUID id : selectedIds()) {
+            for (Row row : rows) {
+                if (row.entry.id.equals(id) && row.entry.revivable()) {
+                    NetworkHandler.CHANNEL.sendToServer(
+                            new com.dsh.maidmanager.network.C2SReviveMaidPacket(id, useShrines));
+                    sent++;
+                    break;
+                }
+            }
+        }
+        if (sent == 0) {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc.player != null) {
+                mc.player.displayClientMessage(
+                        Component.translatable("message.maid_legion.no_dead_selected"), true);
+            }
+        }
+    }
+
     // ------------------------------------------------------------------
     // Rendering
     // ------------------------------------------------------------------
@@ -244,6 +295,16 @@ public class MaidManagerScreen extends Screen {
         }
         if (storeButton != null) {
             storeButton.active = canSummon;
+        }
+
+        // Revive is only meaningful when something dead is selected. Greying it out is how
+        // the player learns that, without a modal explaining it every time.
+        boolean canRevive = hasDeadSelected();
+        if (reviveButton != null) {
+            reviveButton.active = canRevive;
+        }
+        if (reviveShrinesButton != null) {
+            reviveShrinesButton.active = canRevive;
         }
 
         // Column headers first, so the toolbar widgets drawn by super.render() sit above them
@@ -348,6 +409,9 @@ public class MaidManagerScreen extends Screen {
             case PRESENT -> 0xFF2E7D32;
             case STORED -> 0xFF1565C0;
             case UNLOADED -> 0xFF6A1B9A;
+            // Red-grey: visibly different from the three live states at a glance, without
+            // competing with the health bar's red for attention.
+            case DEAD -> 0xFF8E2424;
         };
         graphics.fill(badgeX, y + 6, badgeX + BADGE_W, y + 18, badgeColor);
         graphics.drawCenteredString(this.font,
@@ -462,6 +526,10 @@ public class MaidManagerScreen extends Screen {
             case UNLOADED -> Component.literal(shortDim(entry.dimension) + " "
                     + entry.pos.getX() + "," + entry.pos.getZ()
                     + (entry.sameDimension ? "" : " (other dim)"));
+            // Death count is the number the player actually needs here: it drives the revive
+            // delay, and it is the only field that distinguishes one death from the next.
+            case DEAD -> Component.translatable("gui.maid_legion.sub.dead",
+                    ago(entry.storedAt), entry.deathCount, entry.shortId());
         };
     }
 

@@ -35,6 +35,15 @@ public final class MaidEntry {
     public final long storedAt;
     /** Whether the maid is starred; starred maids are pinned above everything else. */
     public final boolean favourite;
+    /**
+     * How many times this maid has died, for a {@link MaidState#DEAD} entry.
+     *
+     * <p>Cumulative and not reset by reviving, because the revive delay scales with it.
+     * Zero for every other state.
+     */
+    public final int deathCount;
+    /** Whether a {@link MaidState#DEAD} maid still has her inventory in the snapshot. */
+    public final boolean hadItems;
 
     public MaidEntry(UUID id, Component name, MaidState state, String dimension, BlockPos pos,
                      float health, float maxHealth, boolean forceLoad, boolean acknowledged,
@@ -53,6 +62,14 @@ public final class MaidEntry {
     public MaidEntry(UUID id, Component name, MaidState state, String dimension, BlockPos pos,
                      float health, float maxHealth, boolean forceLoad, boolean acknowledged,
                      boolean sameDimension, long storedAt, boolean favourite) {
+        this(id, name, state, dimension, pos, health, maxHealth, forceLoad, acknowledged,
+                sameDimension, storedAt, favourite, 0, false);
+    }
+
+    public MaidEntry(UUID id, Component name, MaidState state, String dimension, BlockPos pos,
+                     float health, float maxHealth, boolean forceLoad, boolean acknowledged,
+                     boolean sameDimension, long storedAt, boolean favourite,
+                     int deathCount, boolean hadItems) {
         this.id = id;
         this.name = name;
         this.state = state;
@@ -65,6 +82,8 @@ public final class MaidEntry {
         this.sameDimension = sameDimension;
         this.storedAt = storedAt;
         this.favourite = favourite;
+        this.deathCount = deathCount;
+        this.hadItems = hadItems;
     }
 
     /** A short, stable suffix that distinguishes two maids sharing a name, e.g. {@code 3f2a}. */
@@ -81,11 +100,29 @@ public final class MaidEntry {
             case PRESENT, STORED -> true;
             // Unloaded maids need the switch; without it there is nothing to teleport.
             case UNLOADED -> forceLoad;
+            // Dead maids come back through revive(), which has its own cost.
+            case DEAD -> false;
         };
     }
 
     public boolean storeable() {
         return state == MaidState.PRESENT;
+    }
+
+    /** True when this row can be revived from the panel. */
+    public boolean revivable() {
+        return state == MaidState.DEAD;
+    }
+
+    /**
+     * The revive delay in ticks: longer each time she dies.
+     *
+     * <p>{@code 5s + 5s per prior death}, capped at 60s so a much-revived maid stays usable.
+     * Mirrors {@code MaidManagerService.reviveDelayTicks} so the client can show a countdown
+     * without asking the server.
+     */
+    public int reviveDelayTicks() {
+        return Math.min(20 * 60, 20 * (5 + 5 * Math.max(0, deathCount - 1)));
     }
 
     public float healthFraction() {
@@ -105,6 +142,8 @@ public final class MaidEntry {
         buf.writeBoolean(sameDimension);
         buf.writeLong(storedAt);
         buf.writeBoolean(favourite);
+        buf.writeVarInt(deathCount);
+        buf.writeBoolean(hadItems);
     }
 
     public static MaidEntry read(FriendlyByteBuf buf) {
@@ -120,6 +159,8 @@ public final class MaidEntry {
                 buf.readBoolean(),
                 buf.readBoolean(),
                 buf.readLong(),
+                buf.readBoolean(),
+                buf.readVarInt(),
                 buf.readBoolean());
     }
 
