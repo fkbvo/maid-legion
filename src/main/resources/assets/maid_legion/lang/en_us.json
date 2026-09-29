@@ -46,6 +46,7 @@
   "gui.maid_legion.load.tooltip.click": "Click to toggle",
   "gui.maid_legion.load.tooltip.disabled": "Disabled by the server",
   "gui.maid_legion.load.tooltip.stored": "This maid is stored as data, so she holds no chunk and needs no force-load.",
+  "gui.maid_legion.load.tooltip.dead": "This maid has fallen and has no entity, so she needs no force-load for now. Her switch setting is kept and applies again once she is revived.",
 
   "gui.maid_legion.sub.stored": "Stored - ready to summon",
   "gui.maid_legion.sub.dead": "fell %s ago - death #%s - #%s",

@@ -2,6 +2,7 @@ package com.dsh.maidmanager.client;
 
 import com.dsh.maidmanager.MaidManagerMod;
 import com.dsh.maidmanager.logic.MaidEntry;
+import com.dsh.maidmanager.logic.ToggleRouter;
 import com.dsh.maidmanager.network.C2SMaidActionPacket;
 import com.dsh.maidmanager.network.NetworkHandler;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -114,56 +115,39 @@ public final class ClientInput {
      *
      * <p>Direction is decided at press time:
      * <ol>
-     *   <li>if any ticked maid is <em>stored</em>, release those (bring them back);</li>
+     *   <li>if any ticked maid can be <em>brought back</em> - one we stored, or one TLM has
+     *       unloaded whose force-load switch is on - summon those;</li>
      *   <li>otherwise <em>recall</em> the ticked maids that are standing in the world.</li>
      * </ol>
      * So the key summons when there is something to bring back and recalls when there is not,
-     * which is what "one key for both" has to mean in practice.
+     * which is what "one key for both" has to mean in practice. A fallen maid is ignored
+     * either way: reviving her is her badge's job, and this key must never spend materials.
      */
     public static void toggleSummonRecall() {
         List<MaidEntry> scope = scopeOf();
         if (scope.isEmpty()) {
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.player != null) {
-                mc.player.displayClientMessage(
-                        Component.translatable("message.maid_legion.no_selection"), true);
-            }
+            message("message.maid_legion.no_selection");
             return;
         }
 
-        List<UUID> stored = new ArrayList<>();
-        List<UUID> present = new ArrayList<>();
-        for (MaidEntry entry : scope) {
-            switch (entry.state) {
-                case STORED -> stored.add(entry.id);
-                case PRESENT -> present.add(entry.id);
-                // UNLOADED maids are only reachable when their switch is on, which
-                // MaidEntry.summonable() already accounts for.
-                case UNLOADED -> {
-                    if (entry.summonable()) {
-                        present.add(entry.id);
-                    }
-                }
-            }
+        // The routing itself lives in ToggleRouter: it is pure, so it can be unit tested,
+        // which is how the "unloaded maid was sent a STORE request" bug should have been
+        // caught in the first place.
+        ToggleRouter.Plan plan = ToggleRouter.plan(scope);
+        switch (plan.direction()) {
+            case SUMMON -> NetworkHandler.sendToServer(
+                    new C2SMaidActionPacket(C2SMaidActionPacket.Action.SUMMON, plan.targets()));
+            case STORE -> NetworkHandler.sendToServer(
+                    new C2SMaidActionPacket(C2SMaidActionPacket.Action.STORE, plan.targets()));
+            case NOTHING -> message("message.maid_legion.nothing_to_do");
         }
+    }
 
-        if (!stored.isEmpty()) {
-            // Releasing stored maids is the unambiguous reading of "I pressed the key".
-            NetworkHandler.sendToServer(
-                    new C2SMaidActionPacket(C2SMaidActionPacket.Action.SUMMON, stored));
-            return;
-        }
-        if (!present.isEmpty()) {
-            // Nothing to release, so this press means "put them away".
-            NetworkHandler.sendToServer(
-                    new C2SMaidActionPacket(C2SMaidActionPacket.Action.STORE, present));
-            return;
-        }
-
+    /** Shows a message above the hotbar, if there is a player to show it to. */
+    private static void message(String key) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
-            mc.player.displayClientMessage(
-                    Component.translatable("message.maid_legion.nothing_to_do"), true);
+            mc.player.displayClientMessage(Component.translatable(key), true);
         }
     }
 
