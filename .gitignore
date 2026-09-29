@@ -25,3 +25,7 @@ Thumbs.db
 # Local dependency: TLM is not on any public Maven repo, so its jar must be placed in
 # libs/ by hand to build. It is 23 MB and belongs to its own authors, never commit it.
 libs/
+
+# Built jars copied out of build/libs/ so that a `clean`, or a checkout of the other
+# branch, cannot wipe the other loader's artifact. Release files, not sources.
+dist/
