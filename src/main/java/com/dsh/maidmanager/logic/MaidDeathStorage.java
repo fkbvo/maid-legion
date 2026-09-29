@@ -38,9 +38,27 @@ public final class MaidDeathStorage extends SavedData {
     private static final String DIED_AT = "DiedAt";
     private static final String DEATH_COUNT = "DeathCount";
     private static final String WITH_ITEMS = "WithItems";
+    private static final String REVIVES = "PendingRevives";
+    private static final String REVIVE_READY_AT = "ReadyAt";
+    private static final String REVIVE_SHRINES = "UsedShrines";
 
     /** owner UUID -> (maid UUID -> record) */
     private final Map<UUID, Map<UUID, DeadMaid>> byOwner = new HashMap<>();
+
+    /**
+     * Revives that have been paid for and are waiting out their delay, keyed by maid id.
+     *
+     * <p>Persisted rather than held in memory, because payment is taken when the cast starts.
+     * A server that restarts mid-cast would otherwise come back with the materials gone and
+     * nothing running - the player would have paid for a revive that silently never happens.
+     * Keeping the state in the save lets {@code tickPendingRevives} resume the cast (the ready
+     * tick is in world time, so it survives) rather than losing it.
+     */
+    private final Map<UUID, PendingRevive> pendingRevives = new HashMap<>();
+
+    /** One in-flight revive. Public so the service layer can read it. */
+    public record PendingRevive(long readyAtTick, boolean useShrines) {
+    }
 
     public static MaidDeathStorage get(MinecraftServer server) {
         return server.overworld().getDataStorage()
@@ -75,6 +93,19 @@ public final class MaidDeathStorage extends SavedData {
             }
             storage.byOwner.put(owner, map);
         }
+
+        CompoundTag revives = tag.getCompound(REVIVES);
+        for (String maidKey : revives.getAllKeys()) {
+            UUID maidId;
+            try {
+                maidId = UUID.fromString(maidKey);
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+            CompoundTag entry = revives.getCompound(maidKey);
+            storage.pendingRevives.put(maidId, new PendingRevive(
+                    entry.getLong(REVIVE_READY_AT), entry.getBoolean(REVIVE_SHRINES)));
+        }
         return storage;
     }
 
@@ -96,7 +127,44 @@ public final class MaidDeathStorage extends SavedData {
             players.put(owner.toString(), list);
         });
         tag.put(ROOT, players);
+
+        CompoundTag revives = new CompoundTag();
+        pendingRevives.forEach((maidId, pending) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putLong(REVIVE_READY_AT, pending.readyAtTick());
+            entry.putBoolean(REVIVE_SHRINES, pending.useShrines());
+            revives.put(maidId.toString(), entry);
+        });
+        tag.put(REVIVES, revives);
         return tag;
+    }
+
+    // ------------------------------------------------------------------
+    // Pending revives
+    // ------------------------------------------------------------------
+
+    public boolean isRevivePending(UUID maidId) {
+        return pendingRevives.containsKey(maidId);
+    }
+
+    public PendingRevive revivePending(UUID maidId) {
+        return pendingRevives.get(maidId);
+    }
+
+    public void startRevive(UUID maidId, long readyAtTick, boolean useShrines) {
+        pendingRevives.put(maidId, new PendingRevive(readyAtTick, useShrines));
+        setDirty();
+    }
+
+    public void clearRevive(UUID maidId) {
+        if (pendingRevives.remove(maidId) != null) {
+            setDirty();
+        }
+    }
+
+    /** Every in-flight revive, so the tick can resume them after a restart. */
+    public Map<UUID, PendingRevive> pendingRevives() {
+        return Map.copyOf(pendingRevives);
     }
 
     /**
