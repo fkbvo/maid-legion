@@ -46,6 +46,7 @@
   "gui.maid_legion.load.tooltip.click": "点击切换",
   "gui.maid_legion.load.tooltip.disabled": "服务器已禁用此功能",
   "gui.maid_legion.load.tooltip.stored": "该女仆已收起为数据，不占用区块，无需强加载。",
+  "gui.maid_legion.load.tooltip.dead": "该女仆已阵亡，没有实体，暂时无需强加载。开关状态会保留，复活后自动生效。",
 
   "gui.maid_legion.sub.stored": "已收起 · 可直接召唤",
   "gui.maid_legion.sub.dead": "%s 前阵亡 · 第 %s 次 · #%s",

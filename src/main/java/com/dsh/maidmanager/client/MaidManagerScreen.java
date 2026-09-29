@@ -462,7 +462,7 @@ public class MaidManagerScreen extends Screen {
                 this.pendingTooltipX = mouseX;
                 this.pendingTooltipY = mouseY;
             }
-        } else if (row.storedNoSwitch()) {
+        } else if (row.switchNotApplicable()) {
             // A dim dash marks the cell as deliberately empty, not broken.
             graphics.drawCenteredString(this.font, Component.literal("-"),
                     swX + SWITCH_W / 2, y + 9, 0xFF606060);
@@ -470,7 +470,9 @@ public class MaidManagerScreen extends Screen {
                 List<Component> tip = new ArrayList<>();
                 tip.add(Component.translatable("gui.maid_legion.load.tooltip.title")
                         .withStyle(ChatFormatting.BOLD));
-                tip.add(Component.translatable("gui.maid_legion.load.tooltip.stored"));
+                tip.add(Component.translatable(entry.state == MaidState.DEAD
+                        ? "gui.maid_legion.load.tooltip.dead"
+                        : "gui.maid_legion.load.tooltip.stored"));
                 this.pendingTooltip = tip;
                 this.pendingTooltipX = mouseX;
                 this.pendingTooltipY = mouseY;
@@ -711,16 +713,20 @@ public class MaidManagerScreen extends Screen {
         /**
          * Shown for maids that can actually be kept loaded: one standing in the world
          * (so her chunk is held from now on) or one TLM has as unloaded (so enabling it
-         * brings her back). A maid stored in our own NBT has no entity and therefore needs
-         * no chunk loading, so the switch would be a lie there.
+         * brings her back).
+         *
+         * <p>Two states are excluded, because in both the switch would be a lie. A maid stored
+         * in our own NBT has no entity to hold a chunk. A fallen maid has no entity either, and
+         * although her force-load flag is remembered and applies again once she is revived, a
+         * control that cannot do anything right now should not look clickable.
          */
         boolean switchVisible() {
-            return entry.state != MaidState.STORED;
+            return entry.state != MaidState.STORED && entry.state != MaidState.DEAD;
         }
 
-        /** Stored maids show why the switch is absent instead of leaving the cell blank. */
-        boolean storedNoSwitch() {
-            return entry.state == MaidState.STORED;
+        /** Those maids show why the switch is absent instead of leaving the cell blank. */
+        boolean switchNotApplicable() {
+            return !switchVisible();
         }
     }
 }
