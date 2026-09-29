@@ -19,6 +19,6 @@ public enum MaidState {
     UNLOADED;
 
     public String translationKey() {
-        return "gui.maid_manager.state." + name().toLowerCase(java.util.Locale.ROOT);
+        return "gui.maid_legion.state." + name().toLowerCase(java.util.Locale.ROOT);
     }
 }

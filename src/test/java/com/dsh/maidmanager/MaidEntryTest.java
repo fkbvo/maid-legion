@@ -63,7 +63,7 @@ public class MaidEntryTest {
     @Test
     public void everyStateHasATranslationKey() {
         for (MaidState state : MaidState.values()) {
-            assertTrue(state.translationKey().startsWith("gui.maid_manager.state."));
+            assertTrue(state.translationKey().startsWith("gui.maid_legion.state."));
         }
     }
 }

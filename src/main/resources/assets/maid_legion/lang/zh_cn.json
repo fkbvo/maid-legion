@@ -1,0 +1,61 @@
+{
+  "itemGroup.maid_legion": "女仆军团",
+  "key.categories.maid_legion": "女仆军团",
+  "key.maid_legion.open": "打开女仆军团",
+  "key.maid_legion.toggle": "一键召唤/收回",
+
+  "gui.maid_legion.title": "女仆军团",
+  "gui.maid_legion.search": "搜索…",
+  "gui.maid_legion.empty": "没有找到女仆",
+  "gui.maid_legion.count": "已选 %s / %s",
+  "gui.maid_legion.summon": "一键召唤",
+  "gui.maid_legion.store": "一键收回",
+  "gui.maid_legion.refresh": "刷新",
+  "gui.maid_legion.select_all": "全选",
+  "gui.maid_legion.invert": "反选",
+  "gui.maid_legion.clear": "清空",
+  "gui.maid_legion.only_favourites": "★ 只看收藏",
+  "gui.maid_legion.only_favourites.on": "★ 显示全部",
+
+  "gui.maid_legion.state.present": "在列",
+  "gui.maid_legion.state.stored": "已收起",
+  "gui.maid_legion.state.unloaded": "未加载",
+
+  "gui.maid_legion.col.maid": "女仆",
+  "gui.maid_legion.col.health": "血量",
+  "gui.maid_legion.col.load": "强加载",
+  "gui.maid_legion.col.state": "状态",
+
+  "gui.maid_legion.load.on": "开",
+  "gui.maid_legion.load.off": "关",
+  "gui.maid_legion.load.tooltip.title": "强加载",
+  "gui.maid_legion.load.tooltip.what": "开启后，该女仆所在区块会持续保持加载，",
+  "gui.maid_legion.load.tooltip.what2": "即使你走远或去了别的维度，也能一键召唤她。",
+  "gui.maid_legion.load.tooltip.state": "当前：%s",
+  "gui.maid_legion.load.tooltip.click": "点击切换",
+  "gui.maid_legion.load.tooltip.disabled": "服务器已禁用此功能",
+  "gui.maid_legion.load.tooltip.stored": "该女仆已收起为数据，不占用区块，无需强加载。",
+
+  "gui.maid_legion.sub.stored": "已收起 · 可直接召唤",
+  "gui.maid_legion.sub.stored_at": "已收起 %s 前 · #%s",
+
+  "gui.maid_legion.help": "?",
+
+  "gui.maid_legion.warning.title": "关于「强加载」",
+  "gui.maid_legion.warning.line1": "开启后，该女仆所在区块会【持续保持加载】，",
+  "gui.maid_legion.warning.line2": "这样即使你走远、或去了别的维度，也能一键召唤她。",
+  "gui.maid_legion.warning.line3": "代价：该区块会持续占用服务器资源，女仆越多负担越大。",
+  "gui.maid_legion.warning.line4": "建议只给常用的女仆开启。每个女仆可单独设置。",
+  "gui.maid_legion.warning.confirm": "我知道了",
+  "gui.maid_legion.warning.cancel": "取消",
+  "gui.maid_legion.warning.close": "关闭",
+
+  "message.maid_legion.result.refresh": "女仆列表已刷新",
+  "message.maid_legion.result.summon": "召唤成功 %s 只，失败 %s 只",
+  "message.maid_legion.result.store": "收回成功 %s 只，失败 %s 只",
+  "message.maid_legion.cannot_reach": "无法召唤该女仆：她所在区块未加载，且未开启强加载。",
+  "message.maid_legion.no_selection": "请先在女仆军团里勾选要操作的女仆。",
+  "message.maid_legion.nothing_to_do": "勾选的女仆已经在身边了，无需操作。",
+  "message.maid_legion.force_load_done": "已通过强加载把女仆召唤过来。",
+  "message.maid_legion.force_load_timeout": "强加载超时：女仆所在区块未能加载，请稍后重试。"
+}

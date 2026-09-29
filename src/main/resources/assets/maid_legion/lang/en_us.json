@@ -1,0 +1,61 @@
+{
+  "itemGroup.maid_legion": "Maid Legion",
+  "key.categories.maid_legion": "Maid Legion",
+  "key.maid_legion.open": "Open Maid Legion",
+  "key.maid_legion.toggle": "Summon / Recall Maids",
+
+  "gui.maid_legion.title": "Maid Legion",
+  "gui.maid_legion.search": "Search...",
+  "gui.maid_legion.empty": "No maids found",
+  "gui.maid_legion.count": "Selected %s / %s",
+  "gui.maid_legion.summon": "Summon",
+  "gui.maid_legion.store": "Recall",
+  "gui.maid_legion.refresh": "Refresh",
+  "gui.maid_legion.select_all": "All",
+  "gui.maid_legion.invert": "Invert",
+  "gui.maid_legion.clear": "None",
+  "gui.maid_legion.only_favourites": "★ Starred",
+  "gui.maid_legion.only_favourites.on": "★ Show all",
+
+  "gui.maid_legion.state.present": "Present",
+  "gui.maid_legion.state.stored": "Stored",
+  "gui.maid_legion.state.unloaded": "Unloaded",
+
+  "gui.maid_legion.col.maid": "Maid",
+  "gui.maid_legion.col.health": "Health",
+  "gui.maid_legion.col.load": "Force-load",
+  "gui.maid_legion.col.state": "State",
+
+  "gui.maid_legion.load.on": "ON",
+  "gui.maid_legion.load.off": "OFF",
+  "gui.maid_legion.load.tooltip.title": "Force-load",
+  "gui.maid_legion.load.tooltip.what": "While on, this maid's chunk stays loaded,",
+  "gui.maid_legion.load.tooltip.what2": "so she can be summoned even from far away or another dimension.",
+  "gui.maid_legion.load.tooltip.state": "Currently: %s",
+  "gui.maid_legion.load.tooltip.click": "Click to toggle",
+  "gui.maid_legion.load.tooltip.disabled": "Disabled by the server",
+  "gui.maid_legion.load.tooltip.stored": "This maid is stored as data, so she holds no chunk and needs no force-load.",
+
+  "gui.maid_legion.sub.stored": "Stored - ready to summon",
+  "gui.maid_legion.sub.stored_at": "Stored %s ago - #%s",
+
+  "gui.maid_legion.help": "?",
+
+  "gui.maid_legion.warning.title": "About force-loading",
+  "gui.maid_legion.warning.line1": "While on, this maid's chunk stays loaded at all times,",
+  "gui.maid_legion.warning.line2": "so you can summon her even from far away or another dimension.",
+  "gui.maid_legion.warning.line3": "Cost: the chunk keeps using server resources, more so with more maids.",
+  "gui.maid_legion.warning.line4": "Recommended for maids you use often. Set per maid.",
+  "gui.maid_legion.warning.confirm": "I understand",
+  "gui.maid_legion.warning.cancel": "Cancel",
+  "gui.maid_legion.warning.close": "Close",
+
+  "message.maid_legion.result.refresh": "Maid list refreshed",
+  "message.maid_legion.result.summon": "Summoned %s maid(s), %s failed",
+  "message.maid_legion.result.store": "Recalled %s maid(s), %s failed",
+  "message.maid_legion.cannot_reach": "Cannot reach this maid: her chunk is unloaded and force-load is off for her.",
+  "message.maid_legion.no_selection": "Tick the maids you want in the maid legion panel first.",
+  "message.maid_legion.nothing_to_do": "The ticked maids are already with you; nothing to do.",
+  "message.maid_legion.force_load_done": "Force-load brought the maid to you.",
+  "message.maid_legion.force_load_timeout": "Force-load timed out: the maid's chunk could not be loaded. Try again later."
+}

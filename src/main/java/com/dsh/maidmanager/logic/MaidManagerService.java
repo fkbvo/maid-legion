@@ -434,15 +434,15 @@ public final class MaidManagerService {
                 iterator.remove();
                 if (summonLoaded(owner, maid)) {
                     owner.displayClientMessage(
-                            Component.translatable("message.maid_manager.force_load_done"), true);
+                            Component.translatable("message.maid_legion.force_load_done"), true);
                 } else {
-                    owner.sendSystemMessage(Component.translatable("message.maid_manager.cannot_reach"));
+                    owner.sendSystemMessage(Component.translatable("message.maid_legion.cannot_reach"));
                 }
                 com.dsh.maidmanager.network.C2SMaidActionPacket.refresh(owner);                continue;
             }
             if (now > pending.deadline()) {
                 iterator.remove();
-                owner.sendSystemMessage(Component.translatable("message.maid_manager.force_load_timeout"));
+                owner.sendSystemMessage(Component.translatable("message.maid_legion.force_load_timeout"));
                 // Release the ticket we took, otherwise it would leak.
                 releaseForceLoad(server, pending.maidId());
             }
@@ -565,7 +565,7 @@ public final class MaidManagerService {
 
     public static void registerCommands(com.mojang.brigadier.CommandDispatcher<
             net.minecraft.commands.CommandSourceStack> dispatcher) {
-        dispatcher.register(net.minecraft.commands.Commands.literal("maidmanager")
+        dispatcher.register(net.minecraft.commands.Commands.literal("maidlegion")
                 .requires(src -> src.hasPermission(0))
                 .then(net.minecraft.commands.Commands.literal("list").executes(ctx -> {
                     ServerPlayer player = ctx.getSource().getPlayerOrException();

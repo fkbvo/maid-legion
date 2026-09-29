@@ -29,11 +29,11 @@ import java.util.UUID;
  */
 public final class ClientInput {
     public static final KeyMapping OPEN_TERMINAL = new KeyMapping(
-            "key.maid_manager.open",
+            "key.maid_legion.open",
             KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_PERIOD,
-            "key.categories.maid_manager");
+            "key.categories.maid_legion");
 
     /**
      * Single hotkey for both summoning and recalling.
@@ -43,11 +43,11 @@ public final class ClientInput {
      * {@link #toggleSummonRecall()}.
      */
     public static final KeyMapping TOGGLE_ACTION = new KeyMapping(
-            "key.maid_manager.toggle",
+            "key.maid_legion.toggle",
             KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM,
             InputConstants.UNKNOWN.getValue(),
-            "key.categories.maid_manager");
+            "key.categories.maid_legion");
 
     private ClientInput() {
     }
@@ -111,7 +111,7 @@ public final class ClientInput {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player != null) {
                 mc.player.displayClientMessage(
-                        Component.translatable("message.maid_manager.no_selection"), true);
+                        Component.translatable("message.maid_legion.no_selection"), true);
             }
             return;
         }
@@ -148,7 +148,7 @@ public final class ClientInput {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
             mc.player.displayClientMessage(
-                    Component.translatable("message.maid_manager.nothing_to_do"), true);
+                    Component.translatable("message.maid_legion.nothing_to_do"), true);
         }
     }
 

@@ -32,7 +32,7 @@ def displayName = decodeProp(providers.gradleProperty('mod_display_name').getOrE
 // is reachable directly and *breaks* when proxied - hence the nonProxyHosts list instead
 // of a blanket proxy.
 //
-// Opt in with MAID_MANAGER_PROXY (environment, wins) or `proxy=host:port` in
+// Opt in with MAID_LEGION_PROXY (environment, wins) or `proxy=host:port` in
 // gradle.properties. Unset - the default - configures nothing at all, so a fresh clone
 // builds with no machine-specific settings.
 def parseProxyHostPort = { String spec ->
@@ -51,7 +51,7 @@ def parseProxyHostPort = { String spec ->
     return [host: cleaned.substring(0, idx), port: port]
 }
 
-def proxySpec = System.getenv('MAID_MANAGER_PROXY')
+def proxySpec = System.getenv('MAID_LEGION_PROXY')
 if (proxySpec == null || proxySpec.trim().isEmpty()) {
     proxySpec = providers.gradleProperty('proxy').getOrElse('')
 }
@@ -86,8 +86,8 @@ if (proxySpec != null && !proxySpec.trim().isEmpty()) {
 // Optional JDK hint for toolchain resolution
 // ---------------------------------------------------------------------------
 // Not required: Gradle finds a suitable JDK via JAVA_HOME, the OS, or auto-provisioning.
-// Set MAID_MANAGER_JDK_PATHS or `jdk_paths=` only when detection picks the wrong JDK.
-def jdkPaths = System.getenv('MAID_MANAGER_JDK_PATHS')
+// Set MAID_LEGION_JDK_PATHS or `jdk_paths=` only when detection picks the wrong JDK.
+def jdkPaths = System.getenv('MAID_LEGION_JDK_PATHS')
 if (jdkPaths == null || jdkPaths.trim().isEmpty()) {
     jdkPaths = providers.gradleProperty('jdk_paths').getOrElse('')
 }

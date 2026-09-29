@@ -73,7 +73,7 @@ public class MaidManagerScreen extends Screen {
     private int pendingTooltipY;
 
     public MaidManagerScreen() {
-        super(Component.translatable("gui.maid_manager.title"));
+        super(Component.translatable("gui.maid_legion.title"));
     }
 
     /** Opens the screen and asks the server for a fresh snapshot. */
@@ -90,7 +90,7 @@ public class MaidManagerScreen extends Screen {
         this.listBottom = this.height - FOOTER_HEIGHT;
 
         this.searchBox = new EditBox(this.font, listLeft + 4, 22, 132, 16,
-                Component.translatable("gui.maid_manager.search"));
+                Component.translatable("gui.maid_legion.search"));
         this.searchBox.setMaxLength(48);
         this.searchBox.setResponder(text -> {
             this.filter = text.toLowerCase(Locale.ROOT);
@@ -102,43 +102,43 @@ public class MaidManagerScreen extends Screen {
         int w = 96;
         int x = this.width / 2 - w - 6;
         this.summonButton = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_manager.summon"), b -> summonSelected())
+                        Component.translatable("gui.maid_legion.summon"), b -> summonSelected())
                 .bounds(x, y, w, 20).build());
         x += w + 6;
         this.storeButton = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_manager.store"), b -> storeSelected())
+                        Component.translatable("gui.maid_legion.store"), b -> storeSelected())
                 .bounds(x, y, w, 20).build());
         x += w + 6;
         addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_manager.refresh"), b -> ClientInput.requestRefresh())
+                        Component.translatable("gui.maid_legion.refresh"), b -> ClientInput.requestRefresh())
                 .bounds(x, y, 72, 20).build());
 
         addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_manager.select_all"), b -> selectAll(true))
+                        Component.translatable("gui.maid_legion.select_all"), b -> selectAll(true))
                 .bounds(listRight - 190, 22, 60, 16).build());
         addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_manager.invert"), b -> invert())
+                        Component.translatable("gui.maid_legion.invert"), b -> invert())
                 .bounds(listRight - 126, 22, 60, 16).build());
         addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_manager.clear"), b -> selectAll(false))
+                        Component.translatable("gui.maid_legion.clear"), b -> selectAll(false))
                 .bounds(listRight - 62, 22, 60, 16).build());
 
         // A help button so the force-load explanation stays reachable after the one-time
         // prompt has been accepted; otherwise a player who forgot what it meant has no way
         // to look it up again.
         addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_manager.help"), b ->
+                        Component.translatable("gui.maid_legion.help"), b ->
                                 net.minecraft.client.Minecraft.getInstance().setScreen(
                                         HeavyLoadWarningScreen.asHelp(this)))
                 .bounds(listRight - 224, 22, 30, 16).build());
 
         // Toggle that narrows the list to starred maids only.
         this.favouritesButton = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_manager.only_favourites"), b -> {
+                        Component.translatable("gui.maid_legion.only_favourites"), b -> {
                             favouritesOnly = !favouritesOnly;
                             b.setMessage(Component.translatable(favouritesOnly
-                                    ? "gui.maid_manager.only_favourites.on"
-                                    : "gui.maid_manager.only_favourites"));
+                                    ? "gui.maid_legion.only_favourites.on"
+                                    : "gui.maid_legion.only_favourites"));
                             rebuildRows();
                         })
                 .bounds(listRight - 314, 22, 86, 16).build());
@@ -265,7 +265,7 @@ public class MaidManagerScreen extends Screen {
 
         if (rows.isEmpty()) {
             graphics.drawCenteredString(this.font,
-                    Component.translatable("gui.maid_manager.empty"),
+                    Component.translatable("gui.maid_legion.empty"),
                     this.width / 2, listTop + 16, 0xFFA0A0A0);
         }
 
@@ -275,7 +275,7 @@ public class MaidManagerScreen extends Screen {
         // The selection counter sits in the footer band, *below* the list's bottom rule.
         // Drawing it above the rule made it overlap the last visible maid's name.
         graphics.drawString(this.font,
-                Component.translatable("gui.maid_manager.count", selectedIds().size(), rows.size()),
+                Component.translatable("gui.maid_legion.count", selectedIds().size(), rows.size()),
                 listLeft + 4, listBottom + 11, 0xFFC0C0C0, false);
 
         // Tooltips go last so they are always fully visible, never clipped by the scissor
@@ -363,25 +363,25 @@ public class MaidManagerScreen extends Screen {
             graphics.fill(swX, y + 6, swX + SWITCH_W, y + 18, allowed ? swColor : 0xFF303030);
             // Draw a label, not just ON/OFF: a bare coloured box tells the player nothing.
             Component label = entry.forceLoad
-                    ? Component.translatable("gui.maid_manager.load.on")
-                    : Component.translatable("gui.maid_manager.load.off");
+                    ? Component.translatable("gui.maid_legion.load.on")
+                    : Component.translatable("gui.maid_legion.load.off");
             graphics.drawCenteredString(this.font, label, swX + SWITCH_W / 2, y + 9,
                     allowed ? 0xFFFFFFFF : 0xFF909090);
 
             if (swHovered) {
                 List<Component> tip = new ArrayList<>();
-                tip.add(Component.translatable("gui.maid_manager.load.tooltip.title")
+                tip.add(Component.translatable("gui.maid_legion.load.tooltip.title")
                         .withStyle(ChatFormatting.BOLD));
-                tip.add(Component.translatable("gui.maid_manager.load.tooltip.what"));
-                tip.add(Component.translatable("gui.maid_manager.load.tooltip.what2"));
-                tip.add(Component.translatable("gui.maid_manager.load.tooltip.state",
+                tip.add(Component.translatable("gui.maid_legion.load.tooltip.what"));
+                tip.add(Component.translatable("gui.maid_legion.load.tooltip.what2"));
+                tip.add(Component.translatable("gui.maid_legion.load.tooltip.state",
                         Component.translatable(entry.forceLoad
-                                ? "gui.maid_manager.load.on"
-                                : "gui.maid_manager.load.off")));
+                                ? "gui.maid_legion.load.on"
+                                : "gui.maid_legion.load.off")));
                 if (allowed) {
-                    tip.add(Component.translatable("gui.maid_manager.load.tooltip.click"));
+                    tip.add(Component.translatable("gui.maid_legion.load.tooltip.click"));
                 } else {
-                    tip.add(Component.translatable("gui.maid_manager.load.tooltip.disabled")
+                    tip.add(Component.translatable("gui.maid_legion.load.tooltip.disabled")
                             .withStyle(ChatFormatting.RED));
                 }
                 // Deferred: drawn last so no widget can paint over it. See render().
@@ -395,9 +395,9 @@ public class MaidManagerScreen extends Screen {
                     swX + SWITCH_W / 2, y + 9, 0xFF606060);
             if (hovered && mouseX >= swX && mouseX <= swX + SWITCH_W) {
                 List<Component> tip = new ArrayList<>();
-                tip.add(Component.translatable("gui.maid_manager.load.tooltip.title")
+                tip.add(Component.translatable("gui.maid_legion.load.tooltip.title")
                         .withStyle(ChatFormatting.BOLD));
-                tip.add(Component.translatable("gui.maid_manager.load.tooltip.stored"));
+                tip.add(Component.translatable("gui.maid_legion.load.tooltip.stored"));
                 this.pendingTooltip = tip;
                 this.pendingTooltipX = mouseX;
                 this.pendingTooltipY = mouseY;
@@ -417,14 +417,14 @@ public class MaidManagerScreen extends Screen {
         // left edge and let it run backwards, matching how the rows look.
         int barX = listRight - BADGE_W - BAR_W - HP_GAP;
 
-        graphics.drawString(this.font, Component.translatable("gui.maid_manager.col.maid"),
+        graphics.drawString(this.font, Component.translatable("gui.maid_legion.col.maid"),
                 listLeft + 2 + STAR_W + 18, headerY, 0xFFB0B0B0, false);
-        Component hpHeader = Component.translatable("gui.maid_manager.col.health");
+        Component hpHeader = Component.translatable("gui.maid_legion.col.health");
         graphics.drawString(this.font, hpHeader, barX + BAR_W / 2 - this.font.width(hpHeader) / 2,
                 headerY, 0xFFB0B0B0, false);
-        graphics.drawCenteredString(this.font, Component.translatable("gui.maid_manager.col.load"),
+        graphics.drawCenteredString(this.font, Component.translatable("gui.maid_legion.col.load"),
                 swX + SWITCH_W / 2, headerY, 0xFFB0B0B0);
-        graphics.drawCenteredString(this.font, Component.translatable("gui.maid_manager.col.state"),
+        graphics.drawCenteredString(this.font, Component.translatable("gui.maid_legion.col.state"),
                 badgeX + BADGE_W / 2, headerY, 0xFFB0B0B0);
 
         // A hairline under the headers to separate them from the first row.
@@ -457,7 +457,7 @@ public class MaidManagerScreen extends Screen {
         return switch (entry.state) {
             case PRESENT -> Component.literal(shortDim(entry.dimension) + " "
                     + entry.pos.getX() + "," + entry.pos.getY() + "," + entry.pos.getZ());
-            case STORED -> Component.translatable("gui.maid_manager.sub.stored_at",
+            case STORED -> Component.translatable("gui.maid_legion.sub.stored_at",
                     ago(entry.storedAt), entry.shortId());
             case UNLOADED -> Component.literal(shortDim(entry.dimension) + " "
                     + entry.pos.getX() + "," + entry.pos.getZ()
