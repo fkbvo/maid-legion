@@ -9,6 +9,15 @@
 
 ## 更新日志
 
+### 1.1.1
+
+- **修复（严重）：女仆死亡时装备被清空、Curios 饰品爆到地上。** 快照取的时机太晚——TLM 在**发出墓碑事件之前**就已经把她的背包搬进了墓碑，所以存下来的是一个**空女仆**，而墓碑又被丢弃，那些物品随之**被销毁**。现在改为在**死亡瞬间**（`LivingDeathEvent`，早于 TLM 的搬运）取快照，并已用字节码核实事件顺序。
+- **修复：Curios 饰品不再掉出**，并在复活时**放回原来那一格**。
+- **修复：每次死亡阵亡次数 +2。** TLM 每次死亡会跑两遍墓碑流程（取消事件后它的 `alreadyDropped` 标志没被置位），导致重复记录、并让第二遍的空快照覆盖掉第一遍的好快照。
+- 兜底：其他模组为女仆添加的死亡掉落也会被拦下，复活时交还。
+
+> ⚠️ **1.1.0 请不要使用**——那一版会在女仆死亡时销毁她的装备。请用 1.1.1。
+
 ### 1.1.0
 
 - **新增：御币招募。** 手持**任意一种御币** `Shift+右键`女仆即可编入军团；面板改为**只管理你招募过的女仆**（1.0.0 是自动接管全部）。
@@ -293,7 +302,7 @@ TLM 自己有一个机制：**区块卸载前**，如果女仆是同维度、且
 
 1. 安装 **Minecraft 1.21.1**，以及 **NeoForge 21.1.x**
 2. 安装 **车万女仆（Touhou Little Maid）1.5.0+** 的 **NeoForge** 版（`touhou_little_maid`）
-3. 下载 **[`maid_legion-1.1.0-neoforge+mc1.21.1.jar`](https://github.com/fkbvo/maid-legion/releases/download/v1.1.0%2Bmc1.21.1/maid_legion-1.1.0-neoforge%2Bmc1.21.1.jar)**，放进 `mods/`
+3. 下载 **[`maid_legion-1.1.1-neoforge+mc1.21.1.jar`](https://github.com/fkbvo/maid-legion/releases/download/v1.1.1%2Bmc1.21.1/maid_legion-1.1.1-neoforge%2Bmc1.21.1.jar)**，放进 `mods/`
 
 > 全部版本见 **[Releases](https://github.com/fkbvo/maid-legion/releases)**。这是 1.21.1（NeoForge）的构建；
 > 1.20 / 1.20.1（Forge）请到 Releases 里找另一个。
@@ -330,7 +339,7 @@ gradlew.bat build
 gradlew.bat runClient
 ```
 
-产物：`build/libs/maid_legion-1.1.0-neoforge+mc1.21.1.jar`
+产物：`build/libs/maid_legion-1.1.1-neoforge+mc1.21.1.jar`
 
 文件名格式为 `<模组id>-<版本>-<加载器>+mc<MC版本>`，与车万女仆官方的
 `touhoulittlemaid-1.5.3-neoforge+mc1.21.1.jar` 保持一致的风格。
