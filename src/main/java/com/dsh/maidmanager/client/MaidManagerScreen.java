@@ -57,8 +57,6 @@ public class MaidManagerScreen extends Screen {
     private EditBox searchBox;
     private Button summonButton;
     private Button storeButton;
-    private Button reviveButton;
-    private Button reviveShrinesButton;
     private Button favouritesButton;
     private double scroll;
     private int listTop;
@@ -115,16 +113,10 @@ public class MaidManagerScreen extends Screen {
                         Component.translatable("gui.maid_legion.refresh"), b -> ClientInput.requestRefresh())
                 .bounds(x, y, 72, 20).build());
 
-        // Revive sits on its own row below the other actions: it consumes a real material
-        // cost and only applies to fallen maids, so it should not sit shoulder-to-shoulder
-        // with the everyday summon/store pair.
-        this.reviveButton = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.revive"), b -> reviveSelected(false))
-                .bounds(this.width / 2 - 102, y - 24, 96, 20).build());
-        this.reviveShrinesButton = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.revive.shrines"),
-                        b -> reviveSelected(true))
-                .bounds(this.width / 2 + 6, y - 24, 96, 20).build());
+        // There is deliberately no revive button here. Revive lives on the fallen maid's own
+        // status badge, which turns into a clickable "revive" while the cursor is over it, so
+        // the action sits on the row it applies to instead of in a separate row at the bottom
+        // that has to stay greyed out whenever nothing dead is ticked.
 
         addRenderableWidget(Button.builder(
                         Component.translatable("gui.maid_legion.select_all"), b -> selectAll(true))
@@ -259,11 +251,6 @@ public class MaidManagerScreen extends Screen {
         return ids;
     }
 
-    /** True when at least one selected row is a fallen maid. */
-    private boolean hasDeadSelected() {
-        return !selectedFor(entry -> entry.revivable()).isEmpty();
-    }
-
     /** True when at least one selected row can be summoned right now. */
     private boolean hasSummonableSelected() {
         return !selectedFor(entry -> entry.summonable()).isEmpty();
@@ -275,25 +262,19 @@ public class MaidManagerScreen extends Screen {
     }
 
     /**
-     * Revives every selected maid that is actually dead.
+     * Revives one fallen maid, triggered by clicking her own status badge.
      *
-     * <p>Non-dead selections are filtered out here rather than sent and rejected, so mixing a
-     * live maid and a fallen one into the same selection does the sensible thing instead of
-     * failing the whole batch.
+     * <p>Per-maid rather than batched on purpose: a revive costs real materials, so the action
+     * belongs on the row it applies to. A batch button had to live in its own row at the
+     * bottom of the screen and stayed greyed out until the right kind of maid was ticked,
+     * which is a lot of interface for something the player aims at directly anyway.
      */
-    private void reviveSelected(boolean useShrines) {
-        List<UUID> dead = selectedFor(entry -> entry.revivable());
-        for (UUID id : dead) {
-            NetworkHandler.CHANNEL.sendToServer(
-                    new com.dsh.maidmanager.network.C2SReviveMaidPacket(id, useShrines));
+    private void reviveOne(MaidEntry entry) {
+        if (!entry.revivable()) {
+            return;
         }
-        if (dead.isEmpty()) {
-            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-            if (mc.player != null) {
-                mc.player.displayClientMessage(
-                        Component.translatable("message.maid_legion.no_dead_selected"), true);
-            }
-        }
+        NetworkHandler.CHANNEL.sendToServer(
+                new com.dsh.maidmanager.network.C2SReviveMaidPacket(entry.id));
     }
 
     // ------------------------------------------------------------------
@@ -314,16 +295,6 @@ public class MaidManagerScreen extends Screen {
         }
         if (storeButton != null) {
             storeButton.active = hasStoreableSelected();
-        }
-
-        // Revive is only meaningful when something dead is selected. Greying it out is how
-        // the player learns that, without a modal explaining it every time.
-        boolean canRevive = hasDeadSelected();
-        if (reviveButton != null) {
-            reviveButton.active = canRevive;
-        }
-        if (reviveShrinesButton != null) {
-            reviveShrinesButton.active = canRevive;
         }
 
         // Column headers first, so the toolbar widgets drawn by super.render() sit above them
@@ -422,20 +393,39 @@ public class MaidManagerScreen extends Screen {
             graphics.fill(barX, y + 8, barX + filled, y + 14, 0xFFD32F2F);
         }
 
-        // Status badge.
+        // Status badge. For a fallen maid this doubles as the revive control: hovering it turns
+        // the label into an action, so the cost-bearing revive sits on the row it applies to
+        // rather than in a separate button row that had to be greyed out most of the time.
         int badgeX = listRight - BADGE_W - BADGE_PAD;
+        boolean badgeHovered = hovered && mouseX >= badgeX && mouseX <= badgeX + BADGE_W;
+        boolean revivable = entry.revivable();
+        boolean showRevive = revivable && badgeHovered;
         int badgeColor = switch (entry.state) {
             case PRESENT -> 0xFF2E7D32;
             case STORED -> 0xFF1565C0;
             case UNLOADED -> 0xFF6A1B9A;
             // Red-grey: visibly different from the three live states at a glance, without
             // competing with the health bar's red for attention.
-            case DEAD -> 0xFF8E2424;
+            case DEAD -> showRevive ? 0xFF2E7D32 : 0xFF8E2424;
         };
         graphics.fill(badgeX, y + 6, badgeX + BADGE_W, y + 18, badgeColor);
         graphics.drawCenteredString(this.font,
-                Component.translatable(entry.state.translationKey()),
+                Component.translatable(showRevive
+                        ? "gui.maid_legion.revive"
+                        : entry.state.translationKey()),
                 badgeX + BADGE_W / 2, y + 8, 0xFFFFFFFF);
+
+        if (showRevive) {
+            // Say what it costs before the click, since reviving spends real materials.
+            List<Component> tip = new ArrayList<>();
+            tip.add(Component.translatable("gui.maid_legion.revive.tooltip.title")
+                    .withStyle(ChatFormatting.BOLD));
+            tip.add(Component.translatable("gui.maid_legion.revive.tooltip.materials"));
+            tip.add(Component.translatable("gui.maid_legion.revive.tooltip.click"));
+            this.pendingTooltip = tip;
+            this.pendingTooltipX = mouseX;
+            this.pendingTooltipY = mouseY;
+        }
 
         // Per-maid force-load switch.
         int swX = badgeX - SWITCH_W - 4;
@@ -629,6 +619,13 @@ public class MaidManagerScreen extends Screen {
             toggleForceLoad(row.entry);
             return true;
         }
+        // Revive badge hitbox - the same rectangle the renderer paints, so hovering it and
+        // clicking it agree. Checked before the generic tick toggle because for a dead maid
+        // the badge is the action; the tick box means nothing for her.
+        if (row.entry.revivable() && mouseX >= badgeX && mouseX <= badgeX + BADGE_W) {
+            reviveOne(row.entry);
+            return true;
+        }
         if (row.selectable()) {
             ClientSelection.toggle(row.entry.id);
             return true;
@@ -703,14 +700,12 @@ public class MaidManagerScreen extends Screen {
         /**
          * Whether this row can be ticked in the list.
          *
-         * <p>Not the same question as "can be summoned": a fallen maid is not summonable, but
-         * she is exactly the row the revive buttons need ticked. Gating selection on
-         * summon/store alone left dead maids permanently unticked, which made revive
-         * unreachable from the UI. Selection is just "which rows the buttons act on"; each
-         * button still filters to the rows it can actually handle.
+         * <p>The tick box feeds the summon and store batches, so only rows those can act on
+         * are tickable. A fallen maid is deliberately excluded: reviving her is her badge's
+         * job, not a batch, and a tick box that did nothing would just be a dead control.
          */
         boolean selectable() {
-            return entry.summonable() || entry.storeable() || entry.revivable();
+            return entry.summonable() || entry.storeable();
         }
 
         /**

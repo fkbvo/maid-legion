@@ -10,14 +10,11 @@ import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
- * Client -&gt; server: revive one dead maid.
+ * Client -&gt; server: revive one dead maid, paying the altar's material list.
  *
- * <p>{@code useShrines} selects the payment: the altar's material list, or
- * {@link MaidManagerService#SHRINE_ALTERNATIVE_COUNT} shrines plus a waiting period.
- *
- * <p>Only the maid id and the payment choice cross the wire. Ownership, enrolment, the death
- * record and the materials are all re-checked server-side, so a crafted packet can neither
- * revive someone else's maid nor skip the cost.
+ * <p>Only the maid id crosses the wire. Ownership, enrolment, the death record and the
+ * materials are all re-checked server-side, so a crafted packet can neither revive someone
+ * else's maid nor skip the cost.
  *
  * <p>1.20 note: Forge's {@code SimpleChannel} uses static encode/decode/handle methods and a
  * {@code NetworkEvent.Context}; the 1.21 branch uses a {@code CustomPacketPayload} record with
@@ -25,20 +22,17 @@ import java.util.function.Supplier;
  */
 public class C2SReviveMaidPacket {
     private final UUID maidId;
-    private final boolean useShrines;
 
-    public C2SReviveMaidPacket(UUID maidId, boolean useShrines) {
+    public C2SReviveMaidPacket(UUID maidId) {
         this.maidId = maidId;
-        this.useShrines = useShrines;
     }
 
     public static void encode(C2SReviveMaidPacket msg, FriendlyByteBuf buf) {
         buf.writeUUID(msg.maidId);
-        buf.writeBoolean(msg.useShrines);
     }
 
     public static C2SReviveMaidPacket decode(FriendlyByteBuf buf) {
-        return new C2SReviveMaidPacket(buf.readUUID(), buf.readBoolean());
+        return new C2SReviveMaidPacket(buf.readUUID());
     }
 
     public static void handle(C2SReviveMaidPacket msg, Supplier<NetworkEvent.Context> ctx) {
@@ -50,22 +44,19 @@ public class C2SReviveMaidPacket {
                     return;
                 }
                 MaidManagerService.ReviveResult result =
-                        MaidManagerService.beginRevive(sender, msg.maidId, msg.useShrines);
+                        MaidManagerService.beginRevive(sender, msg.maidId);
                 // Report refusals explicitly; a silent no-op looks like a broken button.
                 switch (result) {
                     case NEED_MATERIALS -> sender.displayClientMessage(
                             Component.translatable("message.maid_legion.need_materials"), true);
-                    case NEED_SHRINES -> sender.displayClientMessage(
-                            Component.translatable("message.maid_legion.need_shrines",
-                                    MaidManagerService.SHRINE_ALTERNATIVE_COUNT), true);
-                    case ALREADY_PENDING -> sender.displayClientMessage(
-                            Component.translatable("message.maid_legion.revive_pending"), true);
                     case NOT_DEAD -> sender.displayClientMessage(
                             Component.translatable("message.maid_legion.not_dead"), true);
                     case NOT_OWNED -> sender.displayClientMessage(
                             Component.translatable("message.maid_legion.not_enrolled"), true);
+                    case FAILED -> sender.sendSystemMessage(
+                            Component.translatable("message.maid_legion.revive_failed"));
                     case STARTED -> {
-                        // beginRevive already sent the "started" message with the delay.
+                        // beginRevive already told the player she is back.
                     }
                 }
                 C2SMaidActionPacket.refresh(sender);

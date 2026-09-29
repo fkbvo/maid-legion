@@ -13,7 +13,7 @@ package com.dsh.maidmanager.logic;
  *       force-load switch is on.</li>
  *   <li>{@link #DEAD} - the maid died while enrolled, so we captured her NBT in
  *       {@link MaidDeathStorage} instead of leaving a tombstone. Reviving costs the
- *       materials the altar recipe would have cost, or shrine charges.</li>
+ *       materials the altar recipe would have cost.</li>
  * </ul>
  */
 public enum MaidState {

@@ -13,12 +13,13 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
- * Checks that a paid-for revive survives a server restart.
+ * Checks that a captured death survives a server restart.
  *
- * <p>The revive payment is taken when the cast <em>starts</em>, so the in-flight cast has to be
- * persisted. It originally lived in a static map, which meant a restart mid-cast came back with
- * the materials spent, no revive running, and nothing in the log to explain it - the player
- * simply lost the payment. These tests pin the save/load round trip that fixes that.
+ * <p>This is the whole reason the feature works: TLM's tombstone path pushes a maid's gear
+ * <em>out</em> of her before firing {@code MaidTombstoneEvent}, so we snapshot her first and
+ * cancel the tombstone. If that snapshot did not persist, a restart would erase every maid
+ * waiting to be revived and their equipment with them. These tests pin the save/load round
+ * trip, including the full entity NBT.
  *
  * <p>{@link MaidDeathStorage} is used directly rather than through
  * {@code MaidManagerService}: the service imports {@code EntityMaid}, and loading TLM outside a
@@ -59,54 +60,8 @@ public class MaidDeathStorageTest {
     }
 
     /**
-     * The actual regression: a cast in progress at shutdown must still be there at startup.
-     */
-    @Test
-    public void pendingReviveSurvivesSaveAndLoad() {
-        UUID maid = uuid();
-        long readyAt = 12345L;
-
-        MaidDeathStorage before = new MaidDeathStorage();
-        before.startRevive(maid, readyAt, false);
-        assertTrue(before.isRevivePending(maid));
-
-        MaidDeathStorage after = MaidDeathStorage.load(before.save(new CompoundTag()));
-
-        assertTrue("an in-flight revive must survive a restart", after.isRevivePending(maid));
-        MaidDeathStorage.PendingRevive pending = after.revivePending(maid);
-        assertNotNull(pending);
-        assertEquals("the ready tick must be preserved, or the cast restarts", readyAt,
-                pending.readyAtTick());
-        assertFalse("the payment method must be remembered, so a refund gives the right items",
-                pending.useShrines());
-    }
-
-    /** A shrine-paid cast must remember that, so a refund returns shrines and not materials. */
-    @Test
-    public void shrinePaidReviveRemembersItsPaymentMethod() {
-        UUID maid = uuid();
-        MaidDeathStorage before = new MaidDeathStorage();
-        before.startRevive(maid, 999L, true);
-
-        MaidDeathStorage after = MaidDeathStorage.load(before.save(new CompoundTag()));
-        assertTrue(after.revivePending(maid).useShrines());
-    }
-
-    @Test
-    public void clearingAReviveIsAlsoPersisted() {
-        UUID maid = uuid();
-        MaidDeathStorage before = new MaidDeathStorage();
-        before.startRevive(maid, 1L, false);
-        before.clearRevive(maid);
-
-        MaidDeathStorage after = MaidDeathStorage.load(before.save(new CompoundTag()));
-        assertFalse("a completed revive must not come back after a restart",
-                after.isRevivePending(maid));
-    }
-
-    /**
      * Deaths accumulate across deaths and are deliberately not reset by reviving, because the
-     * cast time scales with them. Reviving must not quietly zero the streak.
+     * panel shows the streak. Reviving must not quietly zero it.
      */
     @Test
     public void deathCountKeepsAccumulating() {
@@ -159,19 +114,31 @@ public class MaidDeathStorageTest {
     public void malformedKeysAreSkipped() {
         CompoundTag tag = new CompoundTag();
         CompoundTag players = new CompoundTag();
-        CompoundTag bad = new CompoundTag();
         // Entry with no MaidId / MaidData at all.
         players.put("not-a-uuid", new CompoundTag());
-        players.put(UUID.randomUUID().toString(),
-                new net.minecraft.nbt.ListTag());
+        players.put(UUID.randomUUID().toString(), new net.minecraft.nbt.ListTag());
         tag.put("Players", players);
-
-        CompoundTag revives = new CompoundTag();
-        revives.put("also-not-a-uuid", new CompoundTag());
-        tag.put("PendingRevives", revives);
 
         MaidDeathStorage loaded = MaidDeathStorage.load(tag);
         assertNotNull("loading malformed data must not throw", loaded);
-        assertTrue(loaded.pendingRevives().isEmpty());
+        assertEquals("a junk key must not invent a dead maid", 0,
+                loaded.list(UUID.randomUUID()).size());
+    }
+
+    /**
+     * Data written by an older build that still carried a {@code PendingRevives} block must
+     * load cleanly. The cast machinery is gone, so the block is simply ignored - but a save
+     * made before the removal must not fail to load.
+     */
+    @Test
+    public void legacyPendingRevivesBlockIsIgnored() {
+        CompoundTag tag = new CompoundTag();
+        tag.put("Players", new CompoundTag());
+        CompoundTag revives = new CompoundTag();
+        revives.put(UUID.randomUUID().toString(), new CompoundTag());
+        tag.put("PendingRevives", revives);
+
+        MaidDeathStorage loaded = MaidDeathStorage.load(tag);
+        assertNotNull("an old save with a PendingRevives block must still load", loaded);
     }
 }
