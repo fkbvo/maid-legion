@@ -290,7 +290,10 @@ TLM 自己有一个机制：**区块卸载前**，如果女仆是同维度、且
 
 1. 安装 **Minecraft 1.21.1**，以及 **NeoForge 21.1.x**
 2. 安装 **车万女仆（Touhou Little Maid）1.5.0+** 的 **NeoForge** 版（`touhou_little_maid`）
-3. 把 `maid_legion-1.1.0-neoforge+mc1.21.1.jar` 放进 `mods/`
+3. 下载 **[`maid_legion-1.1.0-neoforge+mc1.21.1.jar`](https://github.com/fkbvo/maid-legion/releases/download/v1.1.0%2Bmc1.21.1/maid_legion-1.1.0-neoforge%2Bmc1.21.1.jar)**，放进 `mods/`
+
+> 全部版本见 **[Releases](https://github.com/fkbvo/maid-legion/releases)**。这是 1.21.1（NeoForge）的构建；
+> 1.20 / 1.20.1（Forge）请到 Releases 里找另一个。
 
 三者缺一不可：本模组依赖车万女仆，没装会在启动时报缺失依赖。
 
