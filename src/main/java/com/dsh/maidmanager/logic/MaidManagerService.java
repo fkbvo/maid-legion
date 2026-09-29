@@ -385,12 +385,12 @@ public final class MaidManagerService {
         long deadline = server.getTickCount() + Config.COMMON.forceLoadTimeoutTicks.get();
         PENDING.put(maidId, new PendingSummon(player.getUUID(), maidId, deadline));
 
-        // Hold the chunk. ForgeChunkManager needs an owner; the maid does not exist yet, so
-        // we key the ticket on her UUID, which is stable across the reload.
+        // Hold the chunk. The maid does not exist as an entity yet, so there is no entity
+        // ticket owner to use; hold it on the level keyed by chunk, and release it as soon as
+        // the summon resolves or times out.
         try {
             net.minecraft.world.level.ChunkPos chunk = new net.minecraft.world.level.ChunkPos(pos);
-            net.minecraftforge.common.world.ForgeChunkManager.forceChunk(
-                    target, MaidManagerMod.MOD_ID, maidId, chunk.x, chunk.z, true, true);
+            ChunkLoadHelper.holdRaw(target, chunk, maidId);
         } catch (Throwable t) {
             MaidManagerMod.LOGGER.warn("Could not start force-load for maid {}: {}", maidId, t.toString());
             PENDING.remove(maidId);
@@ -438,7 +438,8 @@ public final class MaidManagerService {
                 } else {
                     owner.sendSystemMessage(Component.translatable("message.maid_manager.cannot_reach"));
                 }
-                com.dsh.maidmanager.network.C2SMaidActionPacket.refresh(owner);                continue;
+                com.dsh.maidmanager.network.MaidActionHandler.refresh(owner);
+                continue;
             }
             if (now > pending.deadline()) {
                 iterator.remove();

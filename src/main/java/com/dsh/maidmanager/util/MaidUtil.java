@@ -125,14 +125,22 @@ public final class MaidUtil {
         }
     }
 
-    /** Same as {@link #getMaidDataMethod} but resolved per-call for safety. */
+    /**
+     * Reads TLM's {@code MaidInfo} compound out of an item stack.
+     *
+     * <p>1.21 note: {@code ItemStack.getTag()}/{@code hasTag()} were removed when items moved
+     * to the data-component system. {@code CUSTOM_DATA} is the component that carries the
+     * arbitrary NBT that {@code getTag()} used to expose, so that is what we read here.
+     */
     @Nullable
     public static CompoundTag getStoredMaidTag(net.minecraft.world.item.ItemStack stack) {
         try {
-            if (stack.isEmpty() || !stack.hasTag()) {
+            if (stack.isEmpty()) {
                 return null;
             }
-            CompoundTag tag = stack.getTag();
+            CompoundTag tag = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA) == null
+                    ? null
+                    : stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA).copyTag();
             if (tag == null || !tag.contains(MAID_INFO_TAG)) {
                 return null;
             }

@@ -1,7 +1,6 @@
 package com.dsh.maidmanager;
 
-import net.minecraftforge.common.ForgeConfigSpec;
-import org.apache.commons.lang3.tuple.Pair;
+import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
  * Configuration for the maid terminal.
@@ -9,13 +8,21 @@ import org.apache.commons.lang3.tuple.Pair;
  * <p>Deliberately small: the per-maid "force load" switch is stored per maid (see
  * {@link com.dsh.maidmanager.logic.MaidRegistry}) rather than here, because the user asked
  * for per-maid control.
+ *
+ * <p>The only 1.21 change is the class name: NeoForge moved the builder from
+ * {@code ForgeConfigSpec} to {@code net.neoforged.neoforge.common.ModConfigSpec}. The
+ * builder API itself is unchanged.
  */
 public final class Config {
-    public static final ForgeConfigSpec SPEC;
+    public static final ModConfigSpec SPEC;
     public static final Common COMMON;
 
     static {
-        Pair<Common, ForgeConfigSpec> pair = new ForgeConfigSpec.Builder().configure(Common::new);
+        // NeoForge's ModConfigSpec.Builder.configure still returns the commons-lang3 Pair
+        // (getLeft/getSecond) exactly as Forge's ForgeConfigSpec did - only the builder class
+        // itself was renamed. Do not switch this to a Mojang datafixer Pair.
+        org.apache.commons.lang3.tuple.Pair<Common, ModConfigSpec> pair =
+                new ModConfigSpec.Builder().configure(Common::new);
         COMMON = pair.getLeft();
         SPEC = pair.getRight();
     }
@@ -24,12 +31,12 @@ public final class Config {
     }
 
     public static final class Common {
-        public final ForgeConfigSpec.IntValue maxSummonPerAction;
-        public final ForgeConfigSpec.IntValue summonIntervalTicks;
-        public final ForgeConfigSpec.BooleanValue allowForceLoad;
-        public final ForgeConfigSpec.IntValue forceLoadTimeoutTicks;
+        public final ModConfigSpec.IntValue maxSummonPerAction;
+        public final ModConfigSpec.IntValue summonIntervalTicks;
+        public final ModConfigSpec.BooleanValue allowForceLoad;
+        public final ModConfigSpec.IntValue forceLoadTimeoutTicks;
 
-        Common(ForgeConfigSpec.Builder builder) {
+        Common(ModConfigSpec.Builder builder) {
             builder.comment("Maid Manager settings").push("general");
 
             maxSummonPerAction = builder

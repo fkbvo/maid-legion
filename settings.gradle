@@ -1,7 +1,9 @@
 pluginManagement {
     repositories {
         gradlePluginPortal()
-        maven { url = 'https://maven.minecraftforge.net' }
+        // NeoGradle's userdev plugin lives here, and NeoForge itself is resolved from the
+        // NeoForged Maven below (maven.minecraftforge.net no longer hosts 1.21 artifacts).
+        maven { url = 'https://maven.neoforged.net/releases' }
         maven { url = 'https://maven.parchmentmc.org' }
         mavenCentral()
     }

@@ -1,7 +1,9 @@
 # Gradle
 .gradle/
 build/
+# ForgeGradle puts run configs in run/, NeoGradle (used by the 1.21 branch) uses runs/.
 run/
+runs/
 out/
 logs/
 

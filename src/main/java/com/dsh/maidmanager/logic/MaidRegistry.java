@@ -30,11 +30,13 @@ public final class MaidRegistry extends SavedData {
     private final Set<UUID> acknowledged = new HashSet<>();
 
     public static MaidRegistry get(MinecraftServer server) {
-        return server.overworld().getDataStorage()
-                .computeIfAbsent(MaidRegistry::load, MaidRegistry::new, DATA_ID);
+        // See MaidStorage.get: 1.21 replaced the (loader, supplier, id) form of computeIfAbsent
+        // with one that takes a SavedData.Factory.
+        return server.overworld().getDataStorage().computeIfAbsent(
+                new SavedData.Factory<>(MaidRegistry::new, MaidRegistry::load), DATA_ID);
     }
 
-    public static MaidRegistry load(CompoundTag tag) {
+    public static MaidRegistry load(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
         MaidRegistry registry = new MaidRegistry();
         readPerOwner(tag, FORCE_LOAD, registry.forceLoad);
         readPerOwner(tag, FAVOURITES, registry.favourites);
@@ -68,8 +70,13 @@ public final class MaidRegistry extends SavedData {
         }
     }
 
+    /**
+     * 1.21 added the {@link net.minecraft.core.HolderLookup.Provider} parameter to
+     * {@link SavedData#save}. This data is pure UUID bookkeeping, so the provider is unused;
+     * the signature must still match for the {@code SavedData.Factory} to accept this method.
+     */
     @Override
-    public CompoundTag save(CompoundTag tag) {
+    public CompoundTag save(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
         tag.put(FORCE_LOAD, writePerOwner(forceLoad));
         tag.put(FAVOURITES, writePerOwner(favourites));
         ListTag ack = new ListTag();

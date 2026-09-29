@@ -53,7 +53,8 @@ public class HeavyLoadWarningScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics);
+        // 1.21 removed the one-argument Screen.renderBackground(GuiGraphics); the dim/blur pass
+        // now happens inside super.render(), which is called at the end of this method.
         graphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 60, 0xFFFFCC00);
 
         Component[] lines = new Component[]{

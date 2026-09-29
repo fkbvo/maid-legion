@@ -1,13 +1,14 @@
 plugins {
     id 'eclipse'
     id 'idea'
-    id 'net.minecraftforge.gradle' version '[6.0.24,6.2)'
-    id 'org.parchmentmc.librarian.forgegradle' version '1.2.0'
+    // NeoGradle's userdev plugin. This is the NeoForge replacement for ForgeGradle.
+    // 7.0.x requires Gradle 8.10+ (7.1.x requires 9.x), hence the wrapper bump.
+    id 'net.neoforged.gradle.userdev' version '7.0.192'
 }
 
 // Loader-tagged version, matching the convention Touhou Little Maid itself uses
-// (e.g. touhoulittlemaid-1.5.3-forge+mc1.20.1.jar). Keeping the loader in the name makes it
-// obvious which build you are looking at once a Fabric or NeoForge port exists.
+// (e.g. touhoulittlemaid-1.5.3-neoforge+mc1.21.1.jar). Keeping the loader in the name makes
+// it obvious which build you are looking at when several loaders are supported.
 version = "${mod_version}-${mod_loader}+mc${mc_version}"
 group = mod_group
 
@@ -28,37 +29,36 @@ base {
     archivesName = mod_id
 }
 
+// 1.21 requires Java 21. The 1.20 branch targets 17; do not copy that value here or the
+// game will refuse to load the mod with an UnsupportedClassVersionError.
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
-minecraft {
-    mappings channel: mapping_channel, version: mapping_version
-    copyIdeResources = true
+runs {
+    configureEach {
+        systemProperty 'forge.logging.markers', 'REGISTRIES'
+        systemProperty 'forge.logging.console.level', 'debug'
+        modSource project.sourceSets.main
+    }
 
-    runs {
-        configureEach {
-            workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-            mods { "${mod_id}" { source sourceSets.main } }
-        }
-        client {
-            property 'forge.enabledGameTestNamespaces', mod_id
-        }
-        server {
-            property 'forge.enabledGameTestNamespaces', mod_id
-            args '--nogui'
-        }
+    client {
+        systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+    }
+    server {
+        systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        // NeoGradle 7 renamed getProgramArguments() to getArguments(); using the old name
+        // works but logs a deprecation warning on every configure.
+        arguments.addAll '--nogui'
     }
 }
 
 repositories {
     // TLM is not published to any Maven repository, so it is resolved from a local
-    // flat-dir repo. This form (rather than files(...)) is what lets ForgeGradle
-    // deobfuscate the jar, which is required for its API to be usable at compile time.
+    // flat-dir repo. This form (rather than files(...)) is what lets NeoGradle deobfuscate
+    // the jar, which is required for its API to be usable at compile time.
     flatDir {
         dirs 'libs'
     }
@@ -66,20 +66,20 @@ repositories {
 }
 
 dependencies {
-    minecraft "net.minecraftforge:forge:${forge_version}"
+    implementation "net.neoforged:neoforge:${neoforge_version}"
 
     // compileOnly for the API surface, runtimeOnly so runClient can actually load TLM.
     // Never `implementation`: shipping TLM inside this jar would breach its licence
     // (code MIT, assets CC BY-NC-SA) and cause duplicate-class conflicts.
-    compileOnly fg.deobf("tlm:touhoulittlemaid:1.5.3-forge+mc1.20.1")
-    runtimeOnly fg.deobf("tlm:touhoulittlemaid:1.5.3-forge+mc1.20.1")
+    compileOnly "tlm:touhoulittlemaid:1.5.3-neoforge+mc1.21.1"
+    runtimeOnly "tlm:touhoulittlemaid:1.5.3-neoforge+mc1.21.1"
 
     testImplementation 'junit:junit:4.13.2'
 }
 
 tasks.named('processResources', ProcessResources).configure {
-    // mods.toml is read by Forge as UTF-8, so the expansion must not fall back to the
-    // platform encoding (which on a Chinese Windows is GBK and would corrupt the name).
+    // neoforge.mods.toml is read by NeoForge as UTF-8, so the expansion must not fall back to
+    // the platform encoding (which on a Chinese Windows is GBK and would corrupt the name).
     filteringCharset = 'UTF-8'
     var replaceProperties = [
             mod_id          : mod_id,
@@ -89,15 +89,15 @@ tasks.named('processResources', ProcessResources).configure {
             mod_authors     : mod_authors,
             mod_description : mod_description,
             mc_version      : mc_version,
-            forge_version   : forge_version
+            neoforge_version: neoforge_version
     ]
     inputs.properties replaceProperties
-    filesMatching(['META-INF/mods.toml']) {
+    filesMatching(['META-INF/neoforge.mods.toml']) {
         expand replaceProperties
     }
 }
 
-tasks.named('jar', Jar).configure({
+tasks.named('jar', Jar).configure {
     manifest {
         attributes([
                 'Specification-Title'     : mod_id,
@@ -108,12 +108,18 @@ tasks.named('jar', Jar).configure({
                 'Implementation-Vendor'   : mod_authors
         ])
     }
-    finalizedBy 'reobfJar'
-})
+    // NeoGradle reobfuscates as part of the build; there is no ForgeGradle-style
+    // `finalizedBy 'reobfJar'` step to add here.
+}
 
 // The jar name already carries everything needed (mod id, version, loader, mc version),
 // so no post-processing rename step is required.
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+tasks.withType(Test).configureEach {
+    // The unit tests are pure logic tests and must not try to load a NeoForge runtime.
+    useJUnit()
 }

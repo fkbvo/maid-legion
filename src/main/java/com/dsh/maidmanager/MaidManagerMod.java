@@ -1,16 +1,18 @@
 package com.dsh.maidmanager;
 
 import com.dsh.maidmanager.logic.MaidManagerService;
-import com.dsh.maidmanager.network.NetworkHandler;
 import com.mojang.logging.LogUtils;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.event.server.ServerStartedEvent;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.minecraft.server.MinecraftServer;
 import org.slf4j.Logger;
 
 /**
@@ -19,23 +21,30 @@ import org.slf4j.Logger;
  * <p>The mod is a companion for Touhou Little Maid (TLM). It never ships TLM code or
  * assets; every interaction with TLM lives behind {@link com.dsh.maidmanager.util.MaidUtil}
  * so that a TLM API change degrades gracefully instead of crashing the game.
+ *
+ * <p>Differences from the 1.20/Forge branch: the constructor receives the {@link IEventBus}
+ * and {@link ModContainer} instead of pulling them from static context, {@code MinecraftForge}
+ * became {@code NeoForge}, config registration moved onto the container, and
+ * {@code TickEvent.ServerTickEvent} became {@code ServerTickEvent.Post}.
  */
 @Mod(MaidManagerMod.MOD_ID)
 public final class MaidManagerMod {
     public static final String MOD_ID = "maid_manager";
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public MaidManagerMod() {
-        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
-        IEventBus forgeBus = MinecraftForge.EVENT_BUS;
+    public MaidManagerMod(IEventBus modBus, ModContainer container) {
+        container.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 
-        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        // NeoForge requires a TicketController to be registered before it can hold chunks.
+        // This is a mod-bus event, and ChunkLoadHelper.forceChunk() throws if it never ran.
+        modBus.addListener(com.dsh.maidmanager.logic.ChunkLoadHelper::registerController);
 
-        NetworkHandler.register();
-        forgeBus.addListener(this::onRegisterCommands);
-        forgeBus.addListener(this::onServerStarted);
-        forgeBus.addListener(this::onServerStopping);
-        forgeBus.addListener(this::onServerTick);
+        // Payloads register themselves through NetworkHandler.Registrar; nothing to do here.
+        IEventBus gameBus = NeoForge.EVENT_BUS;
+        gameBus.addListener(this::onRegisterCommands);
+        gameBus.addListener(this::onServerStarted);
+        gameBus.addListener(this::onServerStopping);
+        gameBus.addListener(this::onServerTick);
 
         LOGGER.info("Maid Manager loaded.");
     }
@@ -54,23 +63,20 @@ public final class MaidManagerMod {
         MaidManagerService.onServerStarted(event.getServer());
     }
 
-    private void onServerStopping(net.minecraftforge.event.server.ServerStoppingEvent event) {
+    private void onServerStopping(ServerStoppingEvent event) {
         MaidManagerService.onServerStopping(event.getServer());
     }
 
     /**
      * Drives the two things that cannot happen instantly: keeping force-loaded chunks held as
      * maids move, and finishing summons that are waiting for a chunk to come back.
+     *
+     * <p>NeoForge fires {@code ServerTickEvent.Post} once at the end of each server tick, which
+     * is the exact equivalent of Forge's {@code Phase.END}.
      */
-    private void onServerTick(net.minecraftforge.event.TickEvent.ServerTickEvent event) {
-        if (event.phase != net.minecraftforge.event.TickEvent.Phase.END) {
-            return;
-        }
-        net.minecraft.server.MinecraftServer server =
-                net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
-        if (server == null) {
-            return;
-        }
+    @SubscribeEvent
+    public void onServerTick(ServerTickEvent.Post event) {
+        MinecraftServer server = event.getServer();
         MaidManagerService.tickPendingSummons(server);
         // Re-assert held chunks about once a second; cheap, and covers maids that moved.
         if (server.getTickCount() % 20 == 0) {

@@ -1,5 +1,5 @@
 modLoader = "javafml"
-loaderVersion = "[46,)"
+loaderVersion = "[4,)"
 license = "MIT"
 issueTrackerURL = "https://github.com/example/maid-manager/issues"
 
@@ -10,19 +10,19 @@ displayName = "${mod_display_name}"
 authors = "${mod_authors}"
 description = '''${mod_description}'''
 
-# Targets Minecraft 1.20 and 1.20.1 (both use Forge 47.x). The half-open range accepts
-# either, matching how Touhou Little Maid itself declares its own support.
+# Targets Minecraft 1.21.1 on NeoForge. Unlike the 1.20 branch, this file must be named
+# neoforge.mods.toml: NeoForge renamed it and no longer reads META-INF/mods.toml.
 [[dependencies.${mod_id}]]
     modId = "minecraft"
     mandatory = true
-    versionRange = "[1.20,1.20.2)"
+    versionRange = "[1.21.1,1.21.2)"
     ordering = "NONE"
     side = "BOTH"
 
 [[dependencies.${mod_id}]]
-    modId = "forge"
+    modId = "neoforge"
     mandatory = true
-    versionRange = "[47,48)"
+    versionRange = "[21.1.0,)"
     ordering = "NONE"
     side = "BOTH"
 

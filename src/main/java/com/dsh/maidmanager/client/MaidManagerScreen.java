@@ -235,7 +235,9 @@ public class MaidManagerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics);
+        // 1.21 removed Screen.renderBackground(GuiGraphics); the blur + dim pass is now
+        // renderBackground(GuiGraphics, int, int, float) and is invoked by super.render().
+        // Calling the old one-argument form would not compile.
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 8, 0xFFFFFF);
 
         boolean canSummon = !selectedIds().isEmpty();
@@ -550,7 +552,7 @@ public class MaidManagerScreen extends Screen {
     }
 
     private void toggleFavourite(MaidEntry entry) {
-        NetworkHandler.CHANNEL.sendToServer(
+        NetworkHandler.sendToServer(
                 new com.dsh.maidmanager.network.C2SToggleFavouritePacket(
                         List.of(entry.id), !entry.favourite));
     }
@@ -563,23 +565,25 @@ public class MaidManagerScreen extends Screen {
         if (!entry.forceLoad && !entry.acknowledged) {
             net.minecraft.client.Minecraft.getInstance().setScreen(
                     new HeavyLoadWarningScreen(this, () -> {
-                        NetworkHandler.CHANNEL.sendToServer(new com.dsh.maidmanager.network.C2SToggleLoadPacket(
+                        NetworkHandler.sendToServer(new com.dsh.maidmanager.network.C2SToggleLoadPacket(
                                 List.of(entry.id), true, true));
                     }));
             return;
         }
-        NetworkHandler.CHANNEL.sendToServer(new com.dsh.maidmanager.network.C2SToggleLoadPacket(
+        NetworkHandler.sendToServer(new com.dsh.maidmanager.network.C2SToggleLoadPacket(
                 List.of(entry.id), !entry.forceLoad, true));
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        // 1.21 split the single scroll delta into (scrollX, scrollY) for horizontal scrolling
+        // devices. The vertical component is the one the list cares about.
         if (mouseY >= listTop && mouseY <= listBottom) {
-            scroll -= delta * ROW_HEIGHT;
+            scroll -= scrollY * ROW_HEIGHT;
             clampScroll();
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     @Override

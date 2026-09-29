@@ -1,6 +1,7 @@
 package com.dsh.maidmanager.logic;
 
 import com.dsh.maidmanager.MaidManagerMod;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -39,11 +40,20 @@ public final class MaidStorage extends SavedData {
     private final Map<UUID, Map<UUID, StoredMaid>> byOwner = new HashMap<>();
 
     public static MaidStorage get(MinecraftServer server) {
-        return server.overworld().getDataStorage()
-                .computeIfAbsent(MaidStorage::load, MaidStorage::new, DATA_ID);
+        // 1.21 changed computeIfAbsent to take a SavedData.Factory, which bundles the loader
+        // and the constructor together, rather than a bare method reference plus a supplier.
+        return server.overworld().getDataStorage().computeIfAbsent(
+                new SavedData.Factory<>(MaidStorage::new, MaidStorage::load), DATA_ID);
     }
 
-    public static MaidStorage load(CompoundTag tag) {
+    /**
+     * 1.21 changed the {@link SavedData} contract: {@code load} and {@code save} now take a
+     * {@link HolderLookup.Provider} so that data containing registry-backed values (items,
+     * enchantments, ...) can be resolved without a live level. We only read and write plain
+     * NBT - the maid snapshot is opaque to us - so the provider is unused, but the signatures
+     * must match or the anonymous {@code SavedData.Factory} will not compile.
+     */
+    public static MaidStorage load(CompoundTag tag, HolderLookup.Provider registries) {
         MaidStorage storage = new MaidStorage();
         CompoundTag players = tag.getCompound(ROOT);
         for (String ownerKey : players.getAllKeys()) {
@@ -72,7 +82,7 @@ public final class MaidStorage extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag) {
+    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         CompoundTag players = new CompoundTag();
         byOwner.forEach((owner, maids) -> {
             ListTag list = new ListTag();

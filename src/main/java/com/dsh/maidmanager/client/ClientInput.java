@@ -8,12 +8,12 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.InputEvent;
-import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
-import net.minecraftforge.client.settings.KeyConflictContext;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.settings.KeyConflictContext;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -52,8 +52,12 @@ public final class ClientInput {
     private ClientInput() {
     }
 
-    @Mod.EventBusSubscriber(modid = MaidManagerMod.MOD_ID, value = Dist.CLIENT,
-            bus = Mod.EventBusSubscriber.Bus.MOD)
+    /**
+     * NeoForge removed the {@code bus = ...} attribute: {@code @EventBusSubscriber} now
+     * inspects the event type and attaches the handler to the right bus automatically, so
+     * {@code RegisterKeyMappingsEvent} (a mod-bus event) still lands correctly.
+     */
+    @EventBusSubscriber(modid = MaidManagerMod.MOD_ID, value = Dist.CLIENT)
     public static final class ModBus {
         @SubscribeEvent
         public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
@@ -62,12 +66,23 @@ public final class ClientInput {
         }
     }
 
-    @Mod.EventBusSubscriber(modid = MaidManagerMod.MOD_ID, value = Dist.CLIENT)
-    public static final class ForgeBus {
+    @EventBusSubscriber(modid = MaidManagerMod.MOD_ID, value = Dist.CLIENT)
+    public static final class GameBus {
+        /**
+         * 1.21 removed {@code InputEvent.Key} (which fired from the raw GLFW callback before
+         * key state was flushed). {@link ClientTickEvent.Post} is the supported replacement:
+         * both keys are edge-triggered through {@code consumeClick()}, so polling them once
+         * per client tick is equivalent, and it additionally means a key pressed while a
+         * screen is open is not silently swallowed.
+         */
         @SubscribeEvent
-        public static void onKey(InputEvent.Key event) {
+        public static void onClientTick(ClientTickEvent.Post event) {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || mc.screen != null) {
+                // Drain the queued clicks anyway, otherwise a press made while a screen was
+                // open would fire the moment the player closes it.
+                OPEN_TERMINAL.consumeClick();
+                TOGGLE_ACTION.consumeClick();
                 return;
             }
             if (OPEN_TERMINAL.consumeClick()) {
@@ -134,13 +149,13 @@ public final class ClientInput {
 
         if (!stored.isEmpty()) {
             // Releasing stored maids is the unambiguous reading of "I pressed the key".
-            NetworkHandler.CHANNEL.sendToServer(
+            NetworkHandler.sendToServer(
                     new C2SMaidActionPacket(C2SMaidActionPacket.Action.SUMMON, stored));
             return;
         }
         if (!present.isEmpty()) {
             // Nothing to release, so this press means "put them away".
-            NetworkHandler.CHANNEL.sendToServer(
+            NetworkHandler.sendToServer(
                     new C2SMaidActionPacket(C2SMaidActionPacket.Action.STORE, present));
             return;
         }
@@ -172,13 +187,13 @@ public final class ClientInput {
     }
 
     public static void requestRefresh() {
-        NetworkHandler.CHANNEL.sendToServer(
+        NetworkHandler.sendToServer(
                 new C2SMaidActionPacket(C2SMaidActionPacket.Action.REFRESH, List.of()));
     }
 
     public static void sendAction(C2SMaidActionPacket.Action action, List<UUID> targets) {
         if (!targets.isEmpty()) {
-            NetworkHandler.CHANNEL.sendToServer(new C2SMaidActionPacket(action, targets));
+            NetworkHandler.sendToServer(new C2SMaidActionPacket(action, targets));
         }
     }
 }

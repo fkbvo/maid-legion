@@ -2,8 +2,9 @@ package com.dsh.maidmanager.logic;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
@@ -92,9 +93,14 @@ public final class MaidEntry {
         return maxHealth <= 0.0F ? 0.0F : Math.max(0.0F, Math.min(1.0F, health / maxHealth));
     }
 
-    public void write(FriendlyByteBuf buf) {
+    public void write(RegistryFriendlyByteBuf buf) {
         buf.writeUUID(id);
-        buf.writeComponent(name);
+        // 1.21 moved Components onto the codec system; FriendlyByteBuf no longer has
+        // writeComponent/readComponent. ComponentSerialization.STREAM_CODEC is the vanilla
+        // replacement, and it needs a RegistryFriendlyByteBuf (it resolves translatable
+        // arguments through the registry access), which is also the type the payload codecs
+        // receive - so the two line up exactly.
+        ComponentSerialization.STREAM_CODEC.encode(buf, name);
         buf.writeEnum(state);
         buf.writeUtf(dimension);
         buf.writeBlockPos(pos);
@@ -107,10 +113,10 @@ public final class MaidEntry {
         buf.writeBoolean(favourite);
     }
 
-    public static MaidEntry read(FriendlyByteBuf buf) {
+    public static MaidEntry read(RegistryFriendlyByteBuf buf) {
         return new MaidEntry(
                 buf.readUUID(),
-                buf.readComponent(),
+                ComponentSerialization.STREAM_CODEC.decode(buf),
                 buf.readEnum(MaidState.class),
                 buf.readUtf(),
                 buf.readBlockPos(),
