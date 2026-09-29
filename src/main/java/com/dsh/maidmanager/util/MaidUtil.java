@@ -202,6 +202,29 @@ public final class MaidUtil {
         return entity.level().dimension().location().toString();
     }
 
+    /**
+     * Removes the maid from TLM's "unloaded maids" record.
+     *
+     * <p>TLM adds an entry in {@code onRemovedFromWorld} and removes it in
+     * {@code onAddedToWorld}. A maid we rebuild from captured NBT is added to the level
+     * directly, which does fire {@code onAddedToWorld} - but calling this explicitly makes the
+     * revive independent of that ordering, so a revived maid can never end up listed as both
+     * alive and unloaded.
+     */
+    public static void registerMaid(EntityMaid maid) {
+        try {
+            if (removeMaidInfoMethod == null) {
+                return;
+            }
+            MaidWorldData data = getWorldData(maid.level());
+            if (data != null) {
+                removeMaidInfoMethod.invoke(data, maid);
+            }
+        } catch (Throwable t) {
+            MaidManagerMod.LOGGER.debug("registerMaid failed: {}", t.toString());
+        }
+    }
+
     /** True when the given dimension id matches the level the player is in. */
     public static boolean isSameDimension(ServerPlayer player, String dimensionId) {
         return player.level().dimension().location().toString().equals(dimensionId);

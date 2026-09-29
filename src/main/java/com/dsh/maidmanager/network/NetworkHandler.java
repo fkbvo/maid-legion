@@ -44,6 +44,9 @@ public final class NetworkHandler {
             registrar.playToServer(
                     C2SToggleFavouritePacket.TYPE, C2SToggleFavouritePacket.CODEC,
                     C2SToggleFavouritePacket::handle);
+            registrar.playToServer(
+                    C2SReviveMaidPacket.TYPE, C2SReviveMaidPacket.CODEC,
+                    C2SReviveMaidPacket::handle);
             registrar.playToClient(
                     S2CActionResultPacket.TYPE, S2CActionResultPacket.CODEC,
                     S2CActionResultPacket::handle);

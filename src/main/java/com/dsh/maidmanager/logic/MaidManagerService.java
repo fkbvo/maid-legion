@@ -15,6 +15,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
@@ -22,6 +23,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -111,7 +113,289 @@ public final class MaidManagerService {
                     registry.isFavourite(player.getUUID(), id)));
         }
 
-        return new ArrayList<>(byId.values());
+        // 3b) Dead maids we captured instead of leaving a tombstone. These are recorded before
+        //     TLM's own world data is consulted, so a captured death never shows up as
+        //     "unloaded" as well.
+        for (MaidDeathStorage.DeadMaid dead : MaidDeathStorage.get(player.getServer()).list(player.getUUID())) {
+            byId.put(dead.id(), new MaidEntry(
+                    dead.id(),
+                    Component.literal(dead.name().isEmpty() ? "Maid" : dead.name()),
+                    MaidState.DEAD,
+                    "",
+                    BlockPos.ZERO,
+                    -1.0F,
+                    -1.0F,
+                    false,
+                    registry.isAcknowledged(player.getUUID()),
+                    true,
+                    dead.diedAt(),
+                    registry.isFavourite(player.getUUID(), dead.id()),
+                    dead.deathCount(),
+                    dead.withItems()));
+        }
+
+        // 4) Keep only maids the player explicitly enrolled (gohei shift-right-click).
+        //
+        //    Filtering here, at the single point where the snapshot is assembled, means every
+        //    consumer - the GUI, the hotkey scope, the /maidlegion command - sees exactly the
+        //    same roster. Doing it per-caller would let the hotkey act on maids the panel
+        //    never showed, which is precisely the accident enrolment exists to prevent.
+        Set<UUID> allowed = registry.enrolledMaids(player.getUUID());
+        List<MaidEntry> result = new ArrayList<>(byId.size());
+        for (MaidEntry entry : byId.values()) {
+            if (allowed.contains(entry.id)) {
+                result.add(entry);
+            }
+        }
+        return result;
+    }
+
+    /** True when this maid is enrolled and therefore visible to the panel. */
+    public static boolean isEnrolled(ServerPlayer player, UUID maidId) {
+        return MaidRegistry.get(player.getServer()).isEnrolled(player.getUUID(), maidId);
+    }
+
+    // ------------------------------------------------------------------
+    // Revival
+    // ------------------------------------------------------------------
+
+    /**
+     * The materials TLM's own {@code reborn_maid} altar recipe costs, mirrored exactly so the
+     * panel is not a cheaper route than the altar.
+     *
+     * <p>Read from {@code data/touhou_little_maid/recipes/altar/reborn_maid.json}: a film, plus
+     * one each of lapis, gold, redstone, iron and coal. We charge items rather than the
+     * recipe's {@code power} of 0.5 because the altar's power is drawn from the multiblock,
+     * which the panel has no access to.
+     */
+    private static final List<ItemStack> REVIVE_MATERIALS = List.of(
+            new ItemStack(net.minecraft.world.item.Items.LAPIS_LAZULI),
+            new ItemStack(net.minecraft.world.item.Items.GOLD_INGOT),
+            new ItemStack(net.minecraft.world.item.Items.REDSTONE),
+            new ItemStack(net.minecraft.world.item.Items.IRON_INGOT),
+            new ItemStack(net.minecraft.world.item.Items.COAL));
+
+    /** How many shrines can substitute for the materials, as the user designed. */
+    public static final int SHRINE_ALTERNATIVE_COUNT = 3;
+
+    /** Ticks to wait before a revive completes: base, plus a penalty per prior death. */
+    public static int reviveDelayTicks(int deathCount) {
+        return Math.min(20 * 60, 20 * (5 + 5 * Math.max(0, deathCount - 1)));
+    }
+
+    /** The material list the GUI shows, with the amounts the player must supply. */
+    public static List<ItemStack> reviveMaterials() {
+        return REVIVE_MATERIALS;
+    }
+
+    /** True when the player has every material (the film is supplied by the captured data). */
+    public static boolean hasReviveMaterials(ServerPlayer player) {
+        for (ItemStack required : REVIVE_MATERIALS) {
+            if (!player.getInventory().hasAnyMatching(s -> s.is(required.getItem())
+                    && s.getCount() >= required.getCount())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Number of shrine blocks the player is carrying, for the shrine-based revive. */
+    public static int countShrines(ServerPlayer player) {
+        return player.getInventory().countItem(
+                com.github.tartaricacid.touhoulittlemaid.init.InitBlocks.SHRINE.get().asItem());
+    }
+
+    public static boolean hasShrineAlternative(ServerPlayer player) {
+        return countShrines(player) >= SHRINE_ALTERNATIVE_COUNT;
+    }
+
+    /**
+     * Consumes whichever payment the player chose.
+     *
+     * @param useShrines true to spend {@value #SHRINE_ALTERNATIVE_COUNT} shrines instead of
+     *                   the altar materials
+     * @return true when payment succeeded and something was actually consumed
+     */
+    private static boolean payForRevive(ServerPlayer player, boolean useShrines) {
+        if (useShrines) {
+            if (!hasShrineAlternative(player)) {
+                return false;
+            }
+            int remaining = SHRINE_ALTERNATIVE_COUNT;
+            var shrineItem = com.github.tartaricacid.touhoulittlemaid.init.InitBlocks.SHRINE.get().asItem();
+            for (int i = 0; i < player.getInventory().getContainerSize() && remaining > 0; i++) {
+                ItemStack stack = player.getInventory().getItem(i);
+                if (stack.is(shrineItem)) {
+                    int take = Math.min(remaining, stack.getCount());
+                    stack.shrink(take);
+                    remaining -= take;
+                }
+            }
+            return remaining == 0;
+        }
+
+        if (!hasReviveMaterials(player)) {
+            return false;
+        }
+        for (ItemStack required : REVIVE_MATERIALS) {
+            int remaining = required.getCount();
+            for (int i = 0; i < player.getInventory().getContainerSize() && remaining > 0; i++) {
+                ItemStack stack = player.getInventory().getItem(i);
+                if (stack.is(required.getItem())) {
+                    int take = Math.min(remaining, stack.getCount());
+                    stack.shrink(take);
+                    remaining -= take;
+                }
+            }
+        }
+        return true;
+    }
+
+    /** A revive that is waiting out its delay. */
+    private record PendingRevive(UUID ownerId, UUID maidId, long readyAtTick, boolean useShrines) {
+    }
+
+    private static final Map<UUID, PendingRevive> PENDING_REVIVES =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Starts a revive: validates, takes payment, then waits out the delay.
+     *
+     * <p>Payment is taken up front rather than on completion, so a player cannot start a
+     * revive, walk away, and keep the materials. If the delay is interrupted (server stop,
+     * owner leaving) the materials are refunded by {@link #tickPendingRevives}.
+     *
+     * @return a result describing what happened, so the GUI can report it
+     */
+    public static ReviveResult beginRevive(ServerPlayer player, UUID maidId, boolean useShrines) {
+        if (!canControl(player, maidId)) {
+            return ReviveResult.NOT_OWNED;
+        }
+        MaidDeathStorage storage = MaidDeathStorage.get(player.getServer());
+        MaidDeathStorage.DeadMaid dead = storage.get(player.getUUID(), maidId);
+        if (dead == null) {
+            return ReviveResult.NOT_DEAD;
+        }
+        if (PENDING_REVIVES.containsKey(maidId)) {
+            return ReviveResult.ALREADY_PENDING;
+        }
+        // Reviving across dimensions would drop her at the wrong place, so require proximity
+        // to the player instead of guessing a safe spot in another world.
+        if (!payForRevive(player, useShrines)) {
+            return useShrines ? ReviveResult.NEED_SHRINES : ReviveResult.NEED_MATERIALS;
+        }
+
+        long readyAt = player.getServer().getTickCount() + reviveDelayTicks(dead.deathCount());
+        PENDING_REVIVES.put(maidId, new PendingRevive(player.getUUID(), maidId, readyAt, useShrines));
+        player.displayClientMessage(Component.translatable("message.maid_legion.revive_started",
+                dead.name(), reviveDelayTicks(dead.deathCount()) / 20), true);
+        return ReviveResult.STARTED;
+    }
+
+    /** Advances pending revives; completes one when its delay elapses. */
+    public static void tickPendingRevives(MinecraftServer server) {
+        if (PENDING_REVIVES.isEmpty()) {
+            return;
+        }
+        long now = server.getTickCount();
+        var iterator = PENDING_REVIVES.entrySet().iterator();
+        while (iterator.hasNext()) {
+            var entry = iterator.next();
+            PendingRevive pending = entry.getValue();
+            ServerPlayer owner = server.getPlayerList().getPlayer(pending.ownerId());
+            if (owner == null) {
+                // Owner gone: refund and drop the request rather than stranding the payment.
+                refundRevive(server, pending);
+                iterator.remove();
+                continue;
+            }
+            if (now < pending.readyAtTick()) {
+                continue;
+            }
+            iterator.remove();
+            if (finishRevive(owner, pending.maidId())) {
+                owner.displayClientMessage(
+                        Component.translatable("message.maid_legion.revive_done"), true);
+            } else {
+                // Placement failed: give the materials back so the attempt is not wasted.
+                refundRevive(server, pending);
+                owner.sendSystemMessage(Component.translatable("message.maid_legion.revive_failed"));
+            }
+            com.dsh.maidmanager.network.MaidActionHandler.refresh(owner);
+        }
+    }
+
+    /**
+     * Rebuilds the maid from her captured NBT next to the player.
+     *
+     * <p>Her whole inventory travels inside that snapshot - armour, hands, backpack, baubles,
+     * the hidden slot and the task inventory are all part of {@code saveWithoutId} - which is
+     * why nothing was ever dropped and nothing needs re-inserting here.
+     */
+    private static boolean finishRevive(ServerPlayer player, UUID maidId) {
+        MaidDeathStorage storage = MaidDeathStorage.get(player.getServer());
+        MaidDeathStorage.DeadMaid dead = storage.get(player.getUUID(), maidId);
+        if (dead == null) {
+            return false;
+        }
+        ServerLevel level = player.serverLevel();
+        BlockPos target = findSpawnPos(level, player);
+        if (target == null) {
+            return false;
+        }
+        try {
+            EntityMaid maid = InitEntities.MAID.get().create(level);
+            if (maid == null) {
+                return false;
+            }
+            maid.load(dead.data().copy());
+            maid.setUUID(maidId);
+            maid.moveTo(target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D,
+                    player.getYRot(), 0.0F);
+            maid.setDeltaMovement(0.0D, 0.0D, 0.0D);
+            // She comes back at full health; a revive that returned her at 1 HP would just get
+            // her killed again during the delay the player already waited through.
+            maid.setHealth(maid.getMaxHealth());
+            level.addFreshEntity(maid);
+            maid.spawnExplosionParticle();
+
+            storage.remove(player.getUUID(), maidId);
+            // Re-register with TLM so she is tracked as a live maid again.
+            MaidUtil.registerMaid(maid);
+            return true;
+        } catch (Throwable t) {
+            MaidManagerMod.LOGGER.error("Revive failed for maid {}", maidId, t);
+            return false;
+        }
+    }
+
+    /** Gives back whatever {@link #payForRevive} took. */
+    private static void refundRevive(MinecraftServer server, PendingRevive pending) {
+        ServerPlayer owner = server.getPlayerList().getPlayer(pending.ownerId());
+        if (owner == null) {
+            return;
+        }
+        if (pending.useShrines()) {
+            owner.getInventory().add(new ItemStack(
+                    com.github.tartaricacid.touhoulittlemaid.init.InitBlocks.SHRINE.get().asItem(),
+                    SHRINE_ALTERNATIVE_COUNT));
+        } else {
+            for (ItemStack required : REVIVE_MATERIALS) {
+                if (!owner.getInventory().add(required.copy())) {
+                    owner.drop(required.copy(), false);
+                }
+            }
+        }
+    }
+
+    /** Outcome of asking to revive, so the caller can pick the right message. */
+    public enum ReviveResult {
+        STARTED,
+        NOT_OWNED,
+        NOT_DEAD,
+        ALREADY_PENDING,
+        NEED_MATERIALS,
+        NEED_SHRINES
     }
 
     private static MaidEntry present(EntityMaid maid, ServerPlayer player, MaidRegistry registry) {
@@ -159,6 +443,9 @@ public final class MaidManagerService {
 
     /** Stores a loaded maid into {@link MaidStorage}. Returns true on success. */
     public static boolean store(ServerPlayer player, UUID maidId) {
+        if (!canControl(player, maidId)) {
+            return false;
+        }
         EntityMaid maid = findLoadedMaid(player, maidId);
         if (maid == null) {
             return false;
@@ -182,6 +469,9 @@ public final class MaidManagerService {
      * Requires no chunk loading because the NBT is already in hand.
      */
     public static boolean releaseStored(ServerPlayer player, UUID maidId) {
+        if (!canControl(player, maidId)) {
+            return false;
+        }
         MaidStorage storage = MaidStorage.get(player.getServer());
         MaidStorage.StoredMaid stored = storage.get(player.getUUID(), maidId);
         if (stored == null) {
@@ -216,6 +506,9 @@ public final class MaidManagerService {
      * movement. Mirrors the checks TLM's own unload mixin performs.
      */
     public static boolean summonLoaded(ServerPlayer player, EntityMaid maid) {
+        if (!canControl(player, maid.getUUID())) {
+            return false;
+        }
         try {
             MaidUtil.clearBlockingStates(maid);
             MaidUtil.disableHomeMode(maid);
@@ -362,6 +655,9 @@ public final class MaidManagerService {
      * once the entity is back. Returns false when the maid cannot be located at all.
      */
     public static boolean beginForceLoadSummon(ServerPlayer player, UUID maidId) {
+        if (!canControl(player, maidId)) {
+            return false;
+        }
         MinecraftServer server = player.getServer();
         if (server == null) {
             return false;
@@ -509,6 +805,9 @@ public final class MaidManagerService {
 
     /** Enables or disables force-loading for one maid, applying the change immediately. */
     public static void setForceLoad(ServerPlayer player, UUID maidId, boolean enabled) {
+        if (!canControl(player, maidId)) {
+            return;
+        }
         MaidRegistry registry = MaidRegistry.get(player.getServer());
         registry.setForceLoad(player.getUUID(), maidId, enabled);
         if (enabled) {
@@ -538,7 +837,7 @@ public final class MaidManagerService {
      * accepted when she appears in TLM's records for this player.
      */
     public static void setFavourite(ServerPlayer player, UUID maidId, boolean favourite) {
-        if (!ownsMaid(player, maidId)) {
+        if (!canControl(player, maidId)) {
             return;
         }
         MaidRegistry.get(player.getServer()).setFavourite(player.getUUID(), maidId, favourite);
@@ -558,6 +857,19 @@ public final class MaidManagerService {
             }
         }
         return false;
+    }
+
+    /**
+     * True when the player may act on this maid through the panel: they own her <em>and</em>
+     * have enrolled her.
+     *
+     * <p>Every mutating entry point validates with this rather than {@link #ownsMaid}, because
+     * ownership alone is not consent to be commanded from the terminal. The client only ever
+     * sends ids it saw in an enrolled snapshot, so a request for an unenrolled maid means
+     * either a stale client or a crafted packet - both are refused.
+     */
+    public static boolean canControl(ServerPlayer player, UUID maidId) {
+        return ownsMaid(player, maidId) && isEnrolled(player, maidId);
     }
 
     // ------------------------------------------------------------------

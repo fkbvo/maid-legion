@@ -13,9 +13,10 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Persists the per-maid "force load" switches and the one-time heavy-load acknowledgement.
+ * Persists the per-maid "force load" switches, favourites, panel enrolment and the one-time
+ * heavy-load acknowledgement.
  *
- * <p>Kept separate from {@link MaidStorage} because the two have different lifecycles: a
+ * <p>Kept separate from {@link MaidStorage} because these have different lifecycles: a
  * maid's switch must survive being summoned and stored again, so it cannot live inside the
  * stored NBT.
  */
@@ -23,10 +24,19 @@ public final class MaidRegistry extends SavedData {
     private static final String DATA_ID = "maid_legion_registry";
     private static final String FORCE_LOAD = "ForceLoad";
     private static final String FAVOURITES = "Favourites";
+    private static final String ENROLLED = "Enrolled";
     private static final String ACKNOWLEDGED = "Acknowledged";
 
     private final Map<UUID, Set<UUID>> forceLoad = new HashMap<>();
     private final Map<UUID, Set<UUID>> favourites = new HashMap<>();
+
+    /**
+     * Maids the player has explicitly opted into panel management by shift-right-clicking
+     * with a gohei. Deliberately opt-in: the panel would otherwise silently take over every
+     * maid the player owns, including ones they never intended to command from a GUI.
+     */
+    private final Map<UUID, Set<UUID>> enrolled = new HashMap<>();
+
     private final Set<UUID> acknowledged = new HashSet<>();
 
     public static MaidRegistry get(MinecraftServer server) {
@@ -40,6 +50,7 @@ public final class MaidRegistry extends SavedData {
         MaidRegistry registry = new MaidRegistry();
         readPerOwner(tag, FORCE_LOAD, registry.forceLoad);
         readPerOwner(tag, FAVOURITES, registry.favourites);
+        readPerOwner(tag, ENROLLED, registry.enrolled);
         ListTag ack = tag.getList(ACKNOWLEDGED, Tag.TAG_INT_ARRAY);
         for (int i = 0; i < ack.size(); i++) {
             int[] raw = ack.getIntArray(i);
@@ -79,6 +90,7 @@ public final class MaidRegistry extends SavedData {
     public CompoundTag save(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
         tag.put(FORCE_LOAD, writePerOwner(forceLoad));
         tag.put(FAVOURITES, writePerOwner(favourites));
+        tag.put(ENROLLED, writePerOwner(enrolled));
         ListTag ack = new ListTag();
         acknowledged.forEach(owner -> ack.add(new net.minecraft.nbt.IntArrayTag(fromUuid(owner))));
         tag.put(ACKNOWLEDGED, ack);
@@ -105,6 +117,44 @@ public final class MaidRegistry extends SavedData {
         if (enabled ? set.add(maidId) : set.remove(maidId)) {
             setDirty();
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Panel enrolment (shift-right-click a maid with a gohei)
+    // ------------------------------------------------------------------
+
+    /**
+     * True when this maid is managed by the panel.
+     *
+     * <p>A maid the player owns but never enrolled is intentionally invisible to the
+     * terminal: the panel commands maids (summon, store, revive), so silently including
+     * every owned maid would let a mis-click move a maid the player never meant to manage.
+     */
+    public boolean isEnrolled(UUID owner, UUID maidId) {
+        Set<UUID> set = enrolled.get(owner);
+        return set != null && set.contains(maidId);
+    }
+
+    /** Enrols or removes a maid. Returns true when the state actually changed. */
+    public boolean setEnrolled(UUID owner, UUID maidId, boolean value) {
+        Set<UUID> set = enrolled.computeIfAbsent(owner, k -> new HashSet<>());
+        boolean changed = value ? set.add(maidId) : set.remove(maidId);
+        if (changed) {
+            setDirty();
+        }
+        return changed;
+    }
+
+    /** Number of maids this player has enrolled, for the GUI's empty-state message. */
+    public int enrolledCount(UUID owner) {
+        Set<UUID> set = enrolled.get(owner);
+        return set == null ? 0 : set.size();
+    }
+
+    /** Every enrolled maid id, used to filter the snapshot. */
+    public Set<UUID> enrolledMaids(UUID owner) {
+        Set<UUID> set = enrolled.get(owner);
+        return set == null ? Set.of() : Set.copyOf(set);
     }
 
     // ------------------------------------------------------------------

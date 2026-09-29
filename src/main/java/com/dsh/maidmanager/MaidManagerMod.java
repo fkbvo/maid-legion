@@ -68,8 +68,9 @@ public final class MaidManagerMod {
     }
 
     /**
-     * Drives the two things that cannot happen instantly: keeping force-loaded chunks held as
-     * maids move, and finishing summons that are waiting for a chunk to come back.
+     * Drives the things that cannot happen instantly: keeping force-loaded chunks held as
+     * maids move, finishing summons that are waiting for a chunk to come back, and completing
+     * revives once their delay elapses.
      *
      * <p>NeoForge fires {@code ServerTickEvent.Post} once at the end of each server tick, which
      * is the exact equivalent of Forge's {@code Phase.END}.
@@ -78,6 +79,7 @@ public final class MaidManagerMod {
     public void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
         MaidManagerService.tickPendingSummons(server);
+        MaidManagerService.tickPendingRevives(server);
         // Re-assert held chunks about once a second; cheap, and covers maids that moved.
         if (server.getTickCount() % 20 == 0) {
             MaidManagerService.tickForceLoadedMaids(server);
