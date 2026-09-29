@@ -2,6 +2,8 @@ package com.dsh.maidmanager;
 
 import com.dsh.maidmanager.logic.MaidDeathStorage;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import org.junit.Test;
 
 import java.util.UUID;
@@ -44,6 +46,28 @@ public class MaidDeathStorageTest {
         CompoundTag tag = new CompoundTag();
         tag.putString("CustomName", "Marisa");
         tag.putInt("MaidExperience", 42);
+        return tag;
+    }
+
+    /**
+     * Must equal {@code MaidDeathStorage.EXTRA_ITEMS_TAG}.
+     *
+     * <p>Duplicated rather than imported because {@code MaidDeathHandler} imports {@code EntityMaid},
+     * and loading TLM outside a real FML runtime throws {@code IncompatibleClassChangeError}. If
+     * you change the tag there, change it here - the pairing is deliberate.
+     */
+    private static final String EXTRA_ITEMS_TAG = "MaidLegionExtraItems";
+
+    /**
+     * A serialized item tag, shaped the way {@code ItemStack.save} writes one.
+     *
+     * <p>Hand-built so the tests never touch {@code ItemStack}, whose static initialiser needs the
+     * item registry and fails outside a running game.
+     */
+    private static CompoundTag itemTag(String id, int count) {
+        CompoundTag tag = new CompoundTag();
+        tag.putString("id", id);
+        tag.putByte("Count", (byte) count);
         return tag;
     }
 
@@ -147,6 +171,79 @@ public class MaidDeathStorageTest {
         assertNotNull(after.get(alice, maidsMaid));
         assertNull("another player must not see or revive this maid",
                 after.get(bob, maidsMaid));
+    }
+
+    /**
+     * Stacks held back from the ground must travel with the death record.
+     *
+     * <p>This is the path that stops a maid's trinkets from spilling: anything that would have
+     * dropped is copied into her captured NBT, and a revive hands it back. If it did not persist,
+     * a server restart would turn "no drops" into "silently deleted".
+     *
+     * <p>Driven with raw item tags rather than {@code ItemStack}s on purpose: {@code ItemStack}'s
+     * static initialiser needs the item registry, which does not exist in a bare JUnit run.
+     */
+    @Test
+    public void heldBackItemsRideAlongWithTheDeathRecord() {
+        UUID owner = uuid();
+        UUID maid = uuid();
+        MaidDeathStorage storage = new MaidDeathStorage();
+        storage.recordDeath(owner, maid, maidTag(), "Marisa", true);
+
+        ListTag held = new ListTag();
+        held.add(itemTag("minecraft:diamond", 3));
+        held.add(itemTag("minecraft:shield", 1));
+        storage.holdBackItems(owner, maid, held);
+
+        MaidDeathStorage after =
+                MaidDeathStorage.load(storage.save(new CompoundTag(), PROVIDER), PROVIDER);
+        ListTag loaded = after.get(owner, maid).data()
+                .getList(EXTRA_ITEMS_TAG, Tag.TAG_COMPOUND);
+
+        assertEquals("both stacks must survive the save/load cycle", 2, loaded.size());
+        assertEquals("minecraft:diamond", loaded.getCompound(0).getString("id"));
+        assertEquals(3, loaded.getCompound(0).getByte("Count"));
+        assertEquals("minecraft:shield", loaded.getCompound(1).getString("id"));
+    }
+
+    /** Held-back stacks must append, not replace, or a second batch would erase the first. */
+    @Test
+    public void heldBackItemsAccumulate() {
+        UUID owner = uuid();
+        UUID maid = uuid();
+        MaidDeathStorage storage = new MaidDeathStorage();
+        storage.recordDeath(owner, maid, maidTag(), "Marisa", true);
+
+        ListTag first = new ListTag();
+        first.add(itemTag("minecraft:diamond", 1));
+        storage.holdBackItems(owner, maid, first);
+
+        ListTag second = new ListTag();
+        second.add(itemTag("minecraft:emerald", 1));
+        storage.holdBackItems(owner, maid, second);
+
+        ListTag loaded = storage.get(owner, maid).data()
+                .getList(EXTRA_ITEMS_TAG, Tag.TAG_COMPOUND);
+        assertEquals(2, loaded.size());
+    }
+
+    /**
+     * Holding items for a maid with no death record must do nothing.
+     *
+     * <p>That situation means the death was not one we took over, so writing a record here would
+     * invent a dead maid the player never lost.
+     */
+    @Test
+    public void holdingItemsWithoutARecordIsANoOp() {
+        MaidDeathStorage storage = new MaidDeathStorage();
+        UUID owner = uuid();
+        UUID maid = uuid();
+
+        ListTag held = new ListTag();
+        held.add(itemTag("minecraft:diamond", 1));
+        storage.holdBackItems(owner, maid, held);
+
+        assertNull("no record may be invented", storage.get(owner, maid));
     }
 
     /** A malformed or unknown-maid key must be skipped, not throw during load. */
