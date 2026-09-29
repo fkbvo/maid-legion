@@ -39,6 +39,15 @@ public final class MaidDeathStorage extends SavedData {
     private static final String DEATH_COUNT = "DeathCount";
     private static final String WITH_ITEMS = "WithItems";
 
+    /**
+     * Key holding stacks that were stopped from reaching the ground.
+     *
+     * <p>Defined here, next to the rest of the record layout, rather than in the death handler:
+     * this class must stay loadable without TLM, and reaching into another class for a constant
+     * only works while javac happens to inline it.
+     */
+    public static final String EXTRA_ITEMS_TAG = "MaidLegionExtraItems";
+
     /** owner UUID -> (maid UUID -> record) */
     private final Map<UUID, Map<UUID, DeadMaid>> byOwner = new HashMap<>();
 
@@ -152,6 +161,32 @@ public final class MaidDeathStorage extends SavedData {
     public int deathCount(UUID owner, UUID maidId) {
         DeadMaid record = get(owner, maidId);
         return record == null ? 0 : record.deathCount();
+    }
+
+    /**
+     * Stores stacks that were about to hit the ground, so a revive can hand them back.
+     *
+     * <p>Takes already-serialized item tags rather than {@code ItemStack}s: this class is
+     * deliberately free of item types, which is what lets it be unit tested outside a running
+     * game. The caller owns the serialization.
+     *
+     * <p>Appended to the maid's own captured NBT under {@link #EXTRA_ITEMS_TAG}
+     * rather than given its own field, so the on-disk record layout is unchanged and an existing
+     * save keeps loading.
+     *
+     * <p>Does nothing when there is no record: that means the death was not one we took over, and
+     * writing one here would invent a dead maid the player never lost.
+     */
+    public void holdBackItems(UUID owner, UUID maidId, ListTag serializedItems) {
+        DeadMaid existing = get(owner, maidId);
+        if (existing == null || serializedItems.isEmpty()) {
+            return;
+        }
+        CompoundTag data = existing.data();
+        ListTag list = data.getList(EXTRA_ITEMS_TAG, Tag.TAG_COMPOUND);
+        list.addAll(serializedItems);
+        data.put(EXTRA_ITEMS_TAG, list);
+        setDirty();
     }
 
     /**

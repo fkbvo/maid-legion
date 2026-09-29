@@ -256,9 +256,16 @@ public final class MaidManagerService {
     /**
      * Rebuilds the maid from her captured NBT next to the player.
      *
-     * <p>Her whole inventory travels inside that snapshot - armour, hands, backpack, baubles,
-     * the hidden slot and the task inventory are all part of {@code saveWithoutId} - which is
-     * why nothing was ever dropped and nothing needs re-inserting here.
+     * <p>Her own four inventories, armour, both hands, experience and favour all travel inside
+     * the snapshot, because it is taken before TLM moves anything off her. Two things do not:
+     *
+     * <ul>
+     *   <li><b>Curios.</b> They live in a capability, not in her NBT, so they ride along in the
+     *       snapshot under {@link CuriosAccess#CURIOS_TAG} and are put back in their original
+     *       slots here.</li>
+     *   <li><b>Anything else that tried to drop.</b> Held back by the death handler and handed
+     *       back below, so a mod that adds death loot for maids cannot spill it either.</li>
+     * </ul>
      */
     private static boolean finishRevive(ServerPlayer player, UUID maidId) {
         MaidDeathStorage storage = MaidDeathStorage.get(player.getServer());
@@ -276,7 +283,8 @@ public final class MaidManagerService {
             if (maid == null) {
                 return false;
             }
-            maid.load(dead.data().copy());
+            CompoundTag data = dead.data().copy();
+            maid.load(data);
             maid.setUUID(maidId);
             maid.moveTo(target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D,
                     player.getYRot(), 0.0F);
@@ -287,6 +295,10 @@ public final class MaidManagerService {
             level.addFreshEntity(maid);
             maid.spawnExplosionParticle();
 
+            // Curios must go back after load(), so the capability exists on a live entity.
+            CuriosAccess.restoreInto(maid, data);
+            returnHeldItems(player, maid, data);
+
             storage.remove(player.getUUID(), maidId);
             // Re-register with TLM so she is tracked as a live maid again.
             MaidUtil.registerMaid(maid);
@@ -294,6 +306,33 @@ public final class MaidManagerService {
         } catch (Throwable t) {
             MaidManagerMod.LOGGER.error("Revive failed for maid {}", maidId, t);
             return false;
+        }
+    }
+
+    /**
+     * Hands back stacks that were stopped from hitting the ground.
+     *
+     * <p>They go into her inventory; anything that will not fit is dropped at the player's feet
+     * rather than deleted, so a full inventory can never silently eat them.
+     */
+    private static void returnHeldItems(ServerPlayer player, EntityMaid maid, CompoundTag data) {
+        net.minecraft.nbt.ListTag held = MaidDeathHandler.extraItemsOf(data);
+        if (held.isEmpty()) {
+            return;
+        }
+        var inv = maid.getMaidInv();
+        for (int i = 0; i < held.size(); i++) {
+            ItemStack stack = ItemStack.of(held.getCompound(i));
+            if (stack.isEmpty()) {
+                continue;
+            }
+            ItemStack leftover = net.minecraftforge.items.ItemHandlerHelper
+                    .insertItemStacked(inv, stack, false);
+            if (!leftover.isEmpty()) {
+                player.drop(leftover, false);
+                MaidManagerMod.LOGGER.info("Maid {} revived with a full inventory; "
+                        + "a stack was dropped at the player", maid.getUUID());
+            }
         }
     }
 
