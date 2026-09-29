@@ -261,6 +261,37 @@ libs/touhoulittlemaid-1.5.3-neoforge+mc1.21.1.jar
 
 > 💡 1.20 和 1.21 两个分支的 `libs/` 可以各放一份 TLM，互不干扰。
 
+### 可选：代理与 JDK 路径
+
+这两项**默认全部关闭**，克隆下来直接 `gradlew build` 即可，无需任何配置。
+
+**代理**——只有你的网络无法直连 `maven.neoforged.net` 时才需要。典型症状是构建报
+`Connection reset` 或 `SSL peer shut down incorrectly`：
+
+```bash
+# 环境变量（推荐，不进版本库）
+set MAID_MANAGER_PROXY=127.0.0.1:7897        # Windows
+export MAID_MANAGER_PROXY=127.0.0.1:7897     # Linux/macOS
+
+# 或命令行临时覆盖
+gradlew.bat build -Pproxy=127.0.0.1:7897
+```
+
+也可以写进 `gradle.properties` 的 `proxy=`（自带注释，取消注释即可），但那样会把你的
+代理地址提交到仓库，**不建议**。
+
+> 为什么不能简单地设一个全局代理？因为实测这里 **Mojang 的 CDN 反而是直连更稳**，
+> 走代理会握手失败。所以脚本会自动把 Mojang / Gradle / Maven Central / Parchment
+> 加进 `nonProxyHosts`，**只有 NeoForged 走代理**。格式写错会明确报错而不是静默忽略。
+
+**JDK 路径**——通常不用填，Gradle 会自己找（`JAVA_HOME`、系统、或自动下载）。
+只有自动探测挑错了 JDK 时才需要：
+
+```bash
+set MAID_MANAGER_JDK_PATHS=/path/to/jdk-21
+gradlew.bat build -Pjdk_paths=/path/to/jdk-21
+```
+
 ---
 
 ## 调试命令
@@ -309,9 +340,9 @@ libs/touhoulittlemaid-1.5.3-neoforge+mc1.21.1.jar
 > 逻辑层（`MaidManagerService`、`MaidEntry`、`MaidRegistry`、`MaidStorage`）与客户端层
 > 几乎原样复用，改动集中在框架对接处。
 
-> ⚠️ 本机构建注意：若所在网络无法直连 `maven.neoforged.net`，需要在
-> `gradle.properties` 里配置代理（该文件已附注释说明）；配置不当会出现
-> `SSL peer shut down incorrectly` 之类的握手错误。
+> ⚠️ 构建注意：若所在网络无法直连 `maven.neoforged.net`，需要按上文「可选：代理与 JDK 路径」
+> 配置代理，否则会报 `SSL peer shut down incorrectly` 之类的握手错误。
+> 代理是**可选且默认关闭**的，脚本里没有任何硬编码的机器相关配置。
 
 ---
 

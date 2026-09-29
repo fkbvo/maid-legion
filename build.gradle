@@ -24,6 +24,82 @@ def decodeProp = { String value ->
 }
 def displayName = decodeProp(providers.gradleProperty('mod_display_name').getOrElse('Maid Manager'))
 
+// ---------------------------------------------------------------------------
+// Optional network proxy
+// ---------------------------------------------------------------------------
+// Some networks cannot reach maven.neoforged.net directly (the download fails with
+// "Connection reset" / "SSL peer shut down incorrectly"), yet reach Mojang's CDN fine.
+// Sending *everything* through such a proxy then breaks the Mojang downloads instead, so
+// the proxy is applied with a nonProxyHosts exclusion list rather than globally.
+//
+// Opt in with either MAID_MANAGER_PROXY (environment, wins) or `proxy=host:port` in
+// gradle.properties. Left unset - the default - nothing is configured and the build
+// behaves exactly as it would without this block, so the checked-in file works as-is for
+// anyone cloning the repo. Values are read at configuration time; pass -Pproxy=... or the
+// env var to override without editing files.
+def parseProxyHostPort = { String spec ->
+    // Accept "host:port", and tolerate a scheme prefix and trailing slash.
+    def cleaned = spec.trim()
+    cleaned = cleaned.replaceFirst('^[a-zA-Z][a-zA-Z0-9+.-]*://', '')
+    cleaned = cleaned.replaceFirst('/+$', '')
+    def idx = cleaned.lastIndexOf(':')
+    if (idx <= 0) {
+        return null
+    }
+    def port = cleaned.substring(idx + 1)
+    if (!port.isInteger()) {
+        return null
+    }
+    return [host: cleaned.substring(0, idx), port: port]
+}
+
+def proxySpec = System.getenv('MAID_MANAGER_PROXY')
+if (proxySpec == null || proxySpec.trim().isEmpty()) {
+    proxySpec = providers.gradleProperty('proxy').getOrElse('')
+}
+if (proxySpec != null && !proxySpec.trim().isEmpty()) {
+    def parsed = parseProxyHostPort(proxySpec)
+    if (parsed == null) {
+        throw new GradleException(
+                "Could not parse proxy '${proxySpec}'. Expected host:port, e.g. 127.0.0.1:7897")
+    }
+    // Sites that are reliably reachable directly here; proxying them is what caused
+    // "SSL peer shut down incorrectly", so they are always excluded.
+    def directHosts = [
+            'localhost', '127.0.0.1', '[::1]',
+            'mojang.com', '*.mojang.com', 'minecraft.net', '*.minecraft.net',
+            'gradle.org', '*.gradle.org', 'services.gradle.org',
+            'maven.apache.org', '*.maven.apache.org', 'repo1.maven.org',
+            'parchmentmc.org', '*.parchmentmc.org'
+    ]
+    // Only ever ADD to an existing list, so an outer -Dhttp.nonProxyHosts is respected.
+    def existing = System.getProperty('http.nonProxyHosts')
+    def merged = (existing == null || existing.trim().isEmpty())
+            ? directHosts.join('|')
+            : existing + '|' + directHosts.join('|')
+
+    System.setProperty('http.proxyHost', parsed.host)
+    System.setProperty('http.proxyPort', parsed.port)
+    System.setProperty('https.proxyHost', parsed.host)
+    System.setProperty('https.proxyPort', parsed.port)
+    System.setProperty('http.nonProxyHosts', merged)
+    logger.lifecycle("Maid Manager: routing maven.neoforged.net through proxy ${parsed.host}:${parsed.port}")
+}
+
+// ---------------------------------------------------------------------------
+// Optional JDK hint for toolchain resolution
+// ---------------------------------------------------------------------------
+// Not required: Gradle finds JDK 21 via JAVA_HOME, the OS, or by auto-provisioning it.
+// Set MAID_MANAGER_JDK_PATHS or `jdk_paths=` only when detection picks the wrong JDK.
+def jdkPaths = System.getenv('MAID_MANAGER_JDK_PATHS')
+if (jdkPaths == null || jdkPaths.trim().isEmpty()) {
+    jdkPaths = providers.gradleProperty('jdk_paths').getOrElse('')
+}
+if (jdkPaths != null && !jdkPaths.trim().isEmpty()) {
+    System.setProperty('org.gradle.java.installations.paths', jdkPaths)
+    logger.lifecycle("Maid Manager: JDK search paths set to ${jdkPaths}")
+}
+
 // The archive name is plain ASCII: mod_id, version, loader, mc version.
 base {
     archivesName = mod_id
