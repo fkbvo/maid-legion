@@ -226,8 +226,14 @@ public class MaidManagerScreen extends Screen {
         return ids;
     }
 
+    /**
+     * Summons the selected maids that are actually summonable.
+     *
+     * <p>Filtered here for the same reason revive is: a mixed selection should do the sensible
+     * thing rather than have the whole batch rejected for containing one dead maid.
+     */
     private void summonSelected() {
-        List<UUID> ids = selectedIds();
+        List<UUID> ids = selectedFor(entry -> entry.summonable());
         if (ids.isEmpty()) {
             return;
         }
@@ -235,21 +241,37 @@ public class MaidManagerScreen extends Screen {
     }
 
     private void storeSelected() {
-        List<UUID> ids = selectedIds();
+        List<UUID> ids = selectedFor(entry -> entry.storeable());
         if (ids.isEmpty()) {
             return;
         }
         ClientInput.sendAction(C2SMaidActionPacket.Action.STORE, ids);
     }
 
-    /** True when at least one selected row is a fallen maid. */
-    private boolean hasDeadSelected() {
+    /** The ticked ids whose entry satisfies {@code test}, in list order. */
+    private List<UUID> selectedFor(java.util.function.Predicate<MaidEntry> test) {
+        List<UUID> ids = new ArrayList<>();
         for (Row row : rows) {
-            if (row.entry.revivable() && ClientSelection.isSelected(row.entry.id)) {
-                return true;
+            if (row.selectable() && test.test(row.entry) && ClientSelection.isSelected(row.entry.id)) {
+                ids.add(row.entry.id);
             }
         }
-        return false;
+        return ids;
+    }
+
+    /** True when at least one selected row is a fallen maid. */
+    private boolean hasDeadSelected() {
+        return !selectedFor(entry -> entry.revivable()).isEmpty();
+    }
+
+    /** True when at least one selected row can be summoned right now. */
+    private boolean hasSummonableSelected() {
+        return !selectedFor(entry -> entry.summonable()).isEmpty();
+    }
+
+    /** True when at least one selected row can be stored right now. */
+    private boolean hasStoreableSelected() {
+        return !selectedFor(entry -> entry.storeable()).isEmpty();
     }
 
     /**
@@ -260,18 +282,12 @@ public class MaidManagerScreen extends Screen {
      * failing the whole batch.
      */
     private void reviveSelected(boolean useShrines) {
-        int sent = 0;
-        for (UUID id : selectedIds()) {
-            for (Row row : rows) {
-                if (row.entry.id.equals(id) && row.entry.revivable()) {
-                    NetworkHandler.CHANNEL.sendToServer(
-                            new com.dsh.maidmanager.network.C2SReviveMaidPacket(id, useShrines));
-                    sent++;
-                    break;
-                }
-            }
+        List<UUID> dead = selectedFor(entry -> entry.revivable());
+        for (UUID id : dead) {
+            NetworkHandler.CHANNEL.sendToServer(
+                    new com.dsh.maidmanager.network.C2SReviveMaidPacket(id, useShrines));
         }
-        if (sent == 0) {
+        if (dead.isEmpty()) {
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
             if (mc.player != null) {
                 mc.player.displayClientMessage(
@@ -289,12 +305,15 @@ public class MaidManagerScreen extends Screen {
         renderBackground(graphics);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 8, 0xFFFFFF);
 
-        boolean canSummon = !selectedIds().isEmpty();
+        // Each button lights up only for the rows it can actually act on. Selection is now
+        // allowed to include fallen maids, so "something is ticked" is no longer enough to
+        // mean "summon works" - a dead-only selection would otherwise enable Summon and
+        // Store, which reject every id in it.
         if (summonButton != null) {
-            summonButton.active = canSummon;
+            summonButton.active = hasSummonableSelected();
         }
         if (storeButton != null) {
-            storeButton.active = canSummon;
+            storeButton.active = hasStoreableSelected();
         }
 
         // Revive is only meaningful when something dead is selected. Greying it out is how
@@ -681,9 +700,17 @@ public class MaidManagerScreen extends Screen {
             this.entry = entry;
         }
 
-        /** Stored maids have nothing to select in the world? They do - they are summonable. */
+        /**
+         * Whether this row can be ticked in the list.
+         *
+         * <p>Not the same question as "can be summoned": a fallen maid is not summonable, but
+         * she is exactly the row the revive buttons need ticked. Gating selection on
+         * summon/store alone left dead maids permanently unticked, which made revive
+         * unreachable from the UI. Selection is just "which rows the buttons act on"; each
+         * button still filters to the rows it can actually handle.
+         */
         boolean selectable() {
-            return entry.summonable() || entry.storeable();
+            return entry.summonable() || entry.storeable() || entry.revivable();
         }
 
         /**
