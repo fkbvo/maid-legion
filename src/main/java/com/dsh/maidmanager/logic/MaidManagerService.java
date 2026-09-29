@@ -291,7 +291,6 @@ public final class MaidManagerService {
         }
     }
 
-    /** Gives back whatever {@link #payForRevive} took. */
     /**
      * Gives back whatever {@link #payForRevive} took.
      *
