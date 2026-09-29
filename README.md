@@ -1,8 +1,28 @@
-# 女仆管理终端（Maid Manager）
+# 女仆军团（Maid Legion）
 
 一个 **Minecraft 1.21.1 NeoForge** 的《车万女仆》（Touhou Little Maid）伴生模组。
 
-按一个键呼出全屏面板，集中管理你的所有女仆：战斗中**一键召唤**，战斗结束后**一键收回**。
+按一个键呼出全屏面板，像指挥一支小队一样指挥你的女仆：战斗中**一键召唤**，战斗结束后**一键收回**。
+
+> **本模组的定位是「战斗指挥」，不是「仓库管理」。**
+> 目标是在战斗的几秒内完成编队调度，而不是离线整理女仆数据。
+
+## 和其他女仆管理模组有什么不同
+
+车万女仆生态里已有一个功能相近的模组
+[车万女仆：便携管理](https://www.mcmod.cn/class/29619.html)（Touhou Little Maid: Maid Manager，作者 QCQ171-prime）。
+两者都能集中管理 / 远程召唤 / 批量派遣，**但设计取向不同**：
+
+| | 女仆军团（本模组） | 便携管理 |
+| --- | --- | --- |
+| 打开方式 | **快捷键直接开面板**，不占用物品栏 | 需要先合成「女仆管理平板」 |
+| 定位 | **战斗指挥**——编队调度、一键进出场 | 综合管理——含背包、任务编辑 |
+| 部署方式 | 无实体道具，纯面板 | 「女仆锚点」方块决定传送点 |
+| 强加载 | **逐女仆开关**，可让特定女仆常驻某区块 | 通过锚点方块间接实现 |
+| 强化方向 | 计划用 **P 点**在面板内直接强化女仆 | 无 |
+
+> 简单说：**要打仗用本模组，要整理用那个。** 两者可以共存（不会崩溃），
+> 但**不建议对同一只女仆同时使用两边的「收起」功能**——各存一份 NBT，放出时可能重复。
 
 > 📌 **本分支是 1.21 版。** 1.20 / 1.20.1（Forge）请看 [`1.20` 分支](../../tree/1.20)。
 
@@ -35,7 +55,7 @@
 | 搜索 / 全选 / 反选 | 女仆多了也好找 |
 | 多人安全 | 所有操作服务端权威校验，只能操作自己的女仆 |
 
-按键可在「选项 → 控制 → 女仆管理终端」中自行修改。
+按键可在「选项 → 控制 → 女仆军团」中自行修改。
 
 ---
 
@@ -43,7 +63,7 @@
 
 | 默认键 | 功能 |
 | --- | --- |
-| **`.`**（句号） | 打开女仆终端 |
+| **`.`**（句号） | 打开女仆军团 |
 | **未绑定** | 一键召唤 / 收回 |
 
 ### 关于那个「召唤 / 收回」键
@@ -190,7 +210,7 @@ TLM 自己有一个机制：**区块卸载前**，如果女仆是同维度、且
 
 1. 安装 **Minecraft 1.21.1**，以及 **NeoForge 21.1.x**
 2. 安装 **车万女仆（Touhou Little Maid）1.5.0+** 的 **NeoForge** 版（`touhou_little_maid`）
-3. 把 `maid_manager-1.0.0-neoforge+mc1.21.1.jar` 放进 `mods/`
+3. 把 `maid_legion-1.0.0-neoforge+mc1.21.1.jar` 放进 `mods/`
 
 三者缺一不可：本模组依赖车万女仆，没装会在启动时报缺失依赖。
 
@@ -201,7 +221,7 @@ TLM 自己有一个机制：**区块卸载前**，如果女仆是同维度、且
 
 ## 配置
 
-`config/maid_manager-common.toml`
+`config/maid_legion-common.toml`
 
 | 项 | 默认 | 说明 |
 | --- | --- | --- |
@@ -224,7 +244,7 @@ gradlew.bat build
 gradlew.bat runClient
 ```
 
-产物：`build/libs/maid_manager-1.0.0-neoforge+mc1.21.1.jar`
+产物：`build/libs/maid_legion-1.0.0-neoforge+mc1.21.1.jar`
 
 文件名格式为 `<模组id>-<版本>-<加载器>+mc<MC版本>`，与车万女仆官方的
 `touhoulittlemaid-1.5.3-neoforge+mc1.21.1.jar` 保持一致的风格。
@@ -270,8 +290,8 @@ libs/touhoulittlemaid-1.5.3-neoforge+mc1.21.1.jar
 
 ```bash
 # 环境变量（推荐，不进版本库）
-set MAID_MANAGER_PROXY=127.0.0.1:7897        # Windows
-export MAID_MANAGER_PROXY=127.0.0.1:7897     # Linux/macOS
+set MAID_LEGION_PROXY=127.0.0.1:7897        # Windows
+export MAID_LEGION_PROXY=127.0.0.1:7897     # Linux/macOS
 
 # 或命令行临时覆盖
 gradlew.bat build -Pproxy=127.0.0.1:7897
@@ -288,7 +308,7 @@ gradlew.bat build -Pproxy=127.0.0.1:7897
 只有自动探测挑错了 JDK 时才需要：
 
 ```bash
-set MAID_MANAGER_JDK_PATHS=/path/to/jdk-21
+set MAID_LEGION_JDK_PATHS=/path/to/jdk-21
 gradlew.bat build -Pjdk_paths=/path/to/jdk-21
 ```
 
@@ -297,7 +317,7 @@ gradlew.bat build -Pjdk_paths=/path/to/jdk-21
 ## 调试命令
 
 ```
-/maidmanager list
+/maidlegion list
 ```
 
 在服务端打印当前玩家的全部女仆及其状态，便于排查（不需要开客户端界面）。

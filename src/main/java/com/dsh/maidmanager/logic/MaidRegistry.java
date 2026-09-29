@@ -20,7 +20,7 @@ import java.util.UUID;
  * stored NBT.
  */
 public final class MaidRegistry extends SavedData {
-    private static final String DATA_ID = "maid_manager_registry";
+    private static final String DATA_ID = "maid_legion_registry";
     private static final String FORCE_LOAD = "ForceLoad";
     private static final String FAVOURITES = "Favourites";
     private static final String ACKNOWLEDGED = "Acknowledged";

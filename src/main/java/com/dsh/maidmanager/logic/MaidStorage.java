@@ -28,7 +28,7 @@ import java.util.UUID;
  * and is reachable from any dimension, matching how TLM stores its own maid records.
  */
 public final class MaidStorage extends SavedData {
-    private static final String DATA_ID = "maid_manager_stored_maids";
+    private static final String DATA_ID = "maid_legion_stored_maids";
     private static final String ROOT = "Players";
     private static final String ENTRIES = "Entries";
     private static final String MAID_ID = "MaidId";

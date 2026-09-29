@@ -32,7 +32,7 @@ public record S2CActionResultPacket(int success, int failed, C2SMaidActionPacket
             };
 
     public Component describe() {
-        String key = "message.maid_manager.result." + action.name().toLowerCase(java.util.Locale.ROOT);
+        String key = "message.maid_legion.result." + action.name().toLowerCase(java.util.Locale.ROOT);
         return Component.translatable(key, success, failed);
     }
 

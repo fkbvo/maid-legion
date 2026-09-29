@@ -22,7 +22,7 @@ def decodeProp = { String value ->
     return new String(value.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1),
             java.nio.charset.StandardCharsets.UTF_8)
 }
-def displayName = decodeProp(providers.gradleProperty('mod_display_name').getOrElse('Maid Manager'))
+def displayName = decodeProp(providers.gradleProperty('mod_display_name').getOrElse('Maid Legion'))
 
 // ---------------------------------------------------------------------------
 // Optional network proxy
@@ -32,7 +32,7 @@ def displayName = decodeProp(providers.gradleProperty('mod_display_name').getOrE
 // Sending *everything* through such a proxy then breaks the Mojang downloads instead, so
 // the proxy is applied with a nonProxyHosts exclusion list rather than globally.
 //
-// Opt in with either MAID_MANAGER_PROXY (environment, wins) or `proxy=host:port` in
+// Opt in with either MAID_LEGION_PROXY (environment, wins) or `proxy=host:port` in
 // gradle.properties. Left unset - the default - nothing is configured and the build
 // behaves exactly as it would without this block, so the checked-in file works as-is for
 // anyone cloning the repo. Values are read at configuration time; pass -Pproxy=... or the
@@ -53,7 +53,7 @@ def parseProxyHostPort = { String spec ->
     return [host: cleaned.substring(0, idx), port: port]
 }
 
-def proxySpec = System.getenv('MAID_MANAGER_PROXY')
+def proxySpec = System.getenv('MAID_LEGION_PROXY')
 if (proxySpec == null || proxySpec.trim().isEmpty()) {
     proxySpec = providers.gradleProperty('proxy').getOrElse('')
 }
@@ -83,21 +83,21 @@ if (proxySpec != null && !proxySpec.trim().isEmpty()) {
     System.setProperty('https.proxyHost', parsed.host)
     System.setProperty('https.proxyPort', parsed.port)
     System.setProperty('http.nonProxyHosts', merged)
-    logger.lifecycle("Maid Manager: routing maven.neoforged.net through proxy ${parsed.host}:${parsed.port}")
+    logger.lifecycle("Maid Legion: routing maven.neoforged.net through proxy ${parsed.host}:${parsed.port}")
 }
 
 // ---------------------------------------------------------------------------
 // Optional JDK hint for toolchain resolution
 // ---------------------------------------------------------------------------
 // Not required: Gradle finds JDK 21 via JAVA_HOME, the OS, or by auto-provisioning it.
-// Set MAID_MANAGER_JDK_PATHS or `jdk_paths=` only when detection picks the wrong JDK.
-def jdkPaths = System.getenv('MAID_MANAGER_JDK_PATHS')
+// Set MAID_LEGION_JDK_PATHS or `jdk_paths=` only when detection picks the wrong JDK.
+def jdkPaths = System.getenv('MAID_LEGION_JDK_PATHS')
 if (jdkPaths == null || jdkPaths.trim().isEmpty()) {
     jdkPaths = providers.gradleProperty('jdk_paths').getOrElse('')
 }
 if (jdkPaths != null && !jdkPaths.trim().isEmpty()) {
     System.setProperty('org.gradle.java.installations.paths', jdkPaths)
-    logger.lifecycle("Maid Manager: JDK search paths set to ${jdkPaths}")
+    logger.lifecycle("Maid Legion: JDK search paths set to ${jdkPaths}")
 }
 
 // The archive name is plain ASCII: mod_id, version, loader, mc version.

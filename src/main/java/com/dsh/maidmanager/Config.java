@@ -37,7 +37,7 @@ public final class Config {
         public final ModConfigSpec.IntValue forceLoadTimeoutTicks;
 
         Common(ModConfigSpec.Builder builder) {
-            builder.comment("Maid Manager settings").push("general");
+            builder.comment("Maid Legion settings").push("general");
 
             maxSummonPerAction = builder
                     .comment("Maximum number of maids handled by a single summon/store action.",

@@ -16,7 +16,7 @@ import net.minecraft.server.MinecraftServer;
 import org.slf4j.Logger;
 
 /**
- * Entry point of the Maid Manager mod.
+ * Entry point of the Maid Legion mod.
  *
  * <p>The mod is a companion for Touhou Little Maid (TLM). It never ships TLM code or
  * assets; every interaction with TLM lives behind {@link com.dsh.maidmanager.util.MaidUtil}
@@ -29,7 +29,7 @@ import org.slf4j.Logger;
  */
 @Mod(MaidManagerMod.MOD_ID)
 public final class MaidManagerMod {
-    public static final String MOD_ID = "maid_manager";
+    public static final String MOD_ID = "maid_legion";
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public MaidManagerMod(IEventBus modBus, ModContainer container) {
@@ -46,7 +46,7 @@ public final class MaidManagerMod {
         gameBus.addListener(this::onServerStopping);
         gameBus.addListener(this::onServerTick);
 
-        LOGGER.info("Maid Manager loaded.");
+        LOGGER.info("Maid Legion loaded.");
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {
