@@ -82,6 +82,9 @@ public final class MaidManagerMod {
         // Re-assert held chunks about once a second; cheap, and covers maids that moved.
         if (server.getTickCount() % 20 == 0) {
             MaidManagerService.tickForceLoadedMaids(server);
-        }
+            // Polled rather than event-driven: TLM fires nothing when a player picks up a
+            // P-point, so sweeping the wallet every second is the only way to keep pickup room
+            // free. Without it, points overflow into vanilla experience at TLM's fixed rate.
+            com.dsh.maidmanager.logic.MaidProgressionService.tickAutoDeposit(server);        }
     }
 }

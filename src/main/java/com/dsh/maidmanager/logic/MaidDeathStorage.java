@@ -154,6 +154,23 @@ public final class MaidDeathStorage extends SavedData {
         return map == null ? List.of() : new ArrayList<>(map.values());
     }
 
+    /**
+     * Edits a dead maid's captured NBT in place. Returns false when there is no record.
+     *
+     * <p>Same reasoning as {@code MaidStorage.editData}: the record's tag is a live object, so the
+     * write and the dirty flag belong together. Used to spend a fallen maid's experience on
+     * upgrades while she is waiting to be revived.
+     */
+    public boolean editData(UUID owner, UUID maidId,
+                            java.util.function.Consumer<CompoundTag> editor) {
+        DeadMaid record = get(owner, maidId);
+        if (record == null) {
+            return false;
+        }
+        editor.accept(record.data());
+        setDirty();
+        return true;
+    }
     public boolean contains(UUID owner, UUID maidId) {
         return get(owner, maidId) != null;
     }

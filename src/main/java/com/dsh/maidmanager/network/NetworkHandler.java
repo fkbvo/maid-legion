@@ -50,6 +50,14 @@ public final class NetworkHandler {
             registrar.playToClient(
                     S2CActionResultPacket.TYPE, S2CActionResultPacket.CODEC,
                     S2CActionResultPacket::handle);
+            registrar.playToServer(
+                    C2SUpgradePacket.TYPE, C2SUpgradePacket.CODEC, C2SUpgradePacket::handle);
+            registrar.playToServer(
+                    C2SPowerBankPacket.TYPE, C2SPowerBankPacket.CODEC,
+                    C2SPowerBankPacket::handle);
+            registrar.playToServer(
+                    C2SOpenMaidGuiPacket.TYPE, C2SOpenMaidGuiPacket.CODEC,
+                    C2SOpenMaidGuiPacket::handle);
         }
     }
 

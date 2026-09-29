@@ -88,6 +88,7 @@ public final class MaidActionHandler {
 
     public static void refresh(ServerPlayer player) {
         NetworkHandler.sendToPlayer(player, new S2CMaidListPacket(
-                MaidManagerService.snapshot(player), MaidManagerService.forceLoadAllowed()));
+                MaidManagerService.snapshot(player), MaidManagerService.forceLoadAllowed(),
+                MaidManagerService.progression(player)));
     }
 }

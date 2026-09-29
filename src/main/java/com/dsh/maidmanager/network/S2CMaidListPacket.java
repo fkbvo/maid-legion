@@ -2,6 +2,7 @@ package com.dsh.maidmanager.network;
 
 import com.dsh.maidmanager.MaidManagerMod;
 import com.dsh.maidmanager.logic.MaidEntry;
+import com.dsh.maidmanager.logic.ProgressionInfo;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -10,12 +11,16 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.List;
 
-/** Server -&gt; client: the full maid snapshot for the terminal. */
-public record S2CMaidListPacket(List<MaidEntry> entries, boolean forceLoadAllowed)
-        implements CustomPacketPayload {
+/** Server -&gt; client: the full maid snapshot for the terminal, plus the player's progression. */
+public record S2CMaidListPacket(List<MaidEntry> entries, boolean forceLoadAllowed,
+                                ProgressionInfo progression) implements CustomPacketPayload {
 
     public static final Type<S2CMaidListPacket> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(MaidManagerMod.MOD_ID, "maid_list"));
+
+    public S2CMaidListPacket(List<MaidEntry> entries, boolean forceLoadAllowed) {
+        this(entries, forceLoadAllowed, ProgressionInfo.empty());
+    }
 
     /**
      * {@code MaidEntry} is a hand-written value object rather than a codec-annotated record,
@@ -31,7 +36,8 @@ public record S2CMaidListPacket(List<MaidEntry> entries, boolean forceLoadAllowe
                     for (int i = 0; i < size; i++) {
                         entries.add(MaidEntry.read(buf));
                     }
-                    return new S2CMaidListPacket(entries, buf.readBoolean());
+                    return new S2CMaidListPacket(entries, buf.readBoolean(),
+                            ProgressionInfo.read(buf));
                 }
 
                 @Override
@@ -41,6 +47,7 @@ public record S2CMaidListPacket(List<MaidEntry> entries, boolean forceLoadAllowe
                         entry.write(buf);
                     }
                     buf.writeBoolean(msg.forceLoadAllowed);
+                    msg.progression.write(buf);
                 }
             };
 
@@ -51,6 +58,6 @@ public record S2CMaidListPacket(List<MaidEntry> entries, boolean forceLoadAllowe
 
     public static void handle(S2CMaidListPacket msg, IPayloadContext context) {
         context.enqueueWork(() -> com.dsh.maidmanager.client.ClientPayloadHandlers
-                .onMaidList(msg.entries(), msg.forceLoadAllowed()));
+                .onMaidList(msg.entries(), msg.forceLoadAllowed(), msg.progression()));
     }
 }

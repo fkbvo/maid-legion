@@ -131,6 +131,23 @@ public final class MaidStorage extends SavedData {
         return map == null ? List.of() : new ArrayList<>(map.values());
     }
 
+    /**
+     * Edits a stored maid's NBT in place. Returns false when there is no such record.
+     *
+     * <p>Explicit rather than handing out the record's live tag for callers to mutate: writing
+     * without marking the data dirty is an easy way to lose the change on the next save. This also
+     * keeps "who may write" in one place.
+     */
+    public boolean editData(UUID owner, UUID maidId,
+                            java.util.function.Consumer<CompoundTag> editor) {
+        StoredMaid record = get(owner, maidId);
+        if (record == null) {
+            return false;
+        }
+        editor.accept(record.data());
+        setDirty();
+        return true;
+    }
     public boolean contains(UUID owner, UUID maidId) {
         return get(owner, maidId) != null;
     }
