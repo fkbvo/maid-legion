@@ -23,6 +23,79 @@ def decodeProp = { String value ->
 }
 def displayName = decodeProp(providers.gradleProperty('mod_display_name').getOrElse('Maid Manager'))
 
+// ---------------------------------------------------------------------------
+// Optional network proxy
+// ---------------------------------------------------------------------------
+// Only needed when this network cannot reach maven.minecraftforge.net /
+// maven.neoforged.net directly (downloads fail with "Connection reset" or "SSL peer shut
+// down incorrectly"). Those hosts are reachable through a local proxy, while Mojang's CDN
+// is reachable directly and *breaks* when proxied - hence the nonProxyHosts list instead
+// of a blanket proxy.
+//
+// Opt in with MAID_MANAGER_PROXY (environment, wins) or `proxy=host:port` in
+// gradle.properties. Unset - the default - configures nothing at all, so a fresh clone
+// builds with no machine-specific settings.
+def parseProxyHostPort = { String spec ->
+    // Accept "host:port", tolerating a scheme prefix and a trailing slash.
+    def cleaned = spec.trim()
+    cleaned = cleaned.replaceFirst('^[a-zA-Z][a-zA-Z0-9+.-]*://', '')
+    cleaned = cleaned.replaceFirst('/+$', '')
+    def idx = cleaned.lastIndexOf(':')
+    if (idx <= 0) {
+        return null
+    }
+    def port = cleaned.substring(idx + 1)
+    if (!port.isInteger()) {
+        return null
+    }
+    return [host: cleaned.substring(0, idx), port: port]
+}
+
+def proxySpec = System.getenv('MAID_MANAGER_PROXY')
+if (proxySpec == null || proxySpec.trim().isEmpty()) {
+    proxySpec = providers.gradleProperty('proxy').getOrElse('')
+}
+if (proxySpec != null && !proxySpec.trim().isEmpty()) {
+    def parsed = parseProxyHostPort(proxySpec)
+    if (parsed == null) {
+        throw new GradleException(
+                "Could not parse proxy '${proxySpec}'. Expected host:port, e.g. 127.0.0.1:7897")
+    }
+    def directHosts = [
+            'localhost', '127.0.0.1', '[::1]',
+            'mojang.com', '*.mojang.com', 'minecraft.net', '*.minecraft.net',
+            'gradle.org', '*.gradle.org', 'services.gradle.org',
+            'maven.apache.org', '*.maven.apache.org', 'repo1.maven.org',
+            'parchmentmc.org', '*.parchmentmc.org'
+    ]
+    // Only ever ADD to an existing list, so an outer -Dhttp.nonProxyHosts is respected.
+    def existing = System.getProperty('http.nonProxyHosts')
+    def merged = (existing == null || existing.trim().isEmpty())
+            ? directHosts.join('|')
+            : existing + '|' + directHosts.join('|')
+
+    System.setProperty('http.proxyHost', parsed.host)
+    System.setProperty('http.proxyPort', parsed.port)
+    System.setProperty('https.proxyHost', parsed.host)
+    System.setProperty('https.proxyPort', parsed.port)
+    System.setProperty('http.nonProxyHosts', merged)
+    logger.lifecycle("Maid Manager: routing the mod mavens through proxy ${parsed.host}:${parsed.port}")
+}
+
+// ---------------------------------------------------------------------------
+// Optional JDK hint for toolchain resolution
+// ---------------------------------------------------------------------------
+// Not required: Gradle finds a suitable JDK via JAVA_HOME, the OS, or auto-provisioning.
+// Set MAID_MANAGER_JDK_PATHS or `jdk_paths=` only when detection picks the wrong JDK.
+def jdkPaths = System.getenv('MAID_MANAGER_JDK_PATHS')
+if (jdkPaths == null || jdkPaths.trim().isEmpty()) {
+    jdkPaths = providers.gradleProperty('jdk_paths').getOrElse('')
+}
+if (jdkPaths != null && !jdkPaths.trim().isEmpty()) {
+    System.setProperty('org.gradle.java.installations.paths', jdkPaths)
+    logger.lifecycle("Maid Manager: JDK search paths set to ${jdkPaths}")
+}
+
 // The archive name is plain ASCII: mod_id, version, loader, mc version.
 base {
     archivesName = mod_id
