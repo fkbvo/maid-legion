@@ -113,20 +113,30 @@ java {
     }
 }
 
+// NeoGradle 7 run configuration.
+//
+// This deliberately differs from the 1.20 branch, which uses ForgeGradle's
+// `minecraft { runs { ... } }` block. NeoGradle moved runs out of `minecraft` into a
+// top-level `runs { ... }` container, and the `client` / `server` entries are *run types*
+// that NeoForge supplies - they are created automatically, so the block below only
+// customises them rather than defining them.
+//
+// Properties are set in bulk through systemProperties/arguments maps, not with the
+// repeated `property 'k', 'v'` / `args '...'` calls ForgeGradle used. The command name is
+// also not a NeoForge one: `neoforge.enabledGameTestNamespaces` is the NeoForge spelling
+// that replaced Forge's `forge.enabledGameTestNamespaces`.
 runs {
-    configureEach {
-        systemProperty 'forge.logging.markers', 'REGISTRIES'
-        systemProperty 'forge.logging.console.level', 'debug'
-        modSource project.sourceSets.main
+    configureEach { run ->
+        // Adding the main source set is what makes `runClient` actually load this mod.
+        run.modSource sourceSets.main
+        run.systemProperties = [
+                'forge.logging.markers'             : 'REGISTRIES',
+                'forge.logging.console.level'       : 'debug',
+                'neoforge.enabledGameTestNamespaces': mod_id
+        ]
     }
 
-    client {
-        systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
-    }
     server {
-        systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
-        // NeoGradle 7 renamed getProgramArguments() to getArguments(); using the old name
-        // works but logs a deprecation warning on every configure.
         arguments.addAll '--nogui'
     }
 }
