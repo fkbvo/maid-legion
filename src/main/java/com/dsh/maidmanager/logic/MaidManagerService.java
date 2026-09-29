@@ -175,14 +175,6 @@ public final class MaidManagerService {
             new ItemStack(net.minecraft.world.item.Items.IRON_INGOT),
             new ItemStack(net.minecraft.world.item.Items.COAL));
 
-    /** How many shrines can substitute for the materials, as the user designed. */
-    public static final int SHRINE_ALTERNATIVE_COUNT = 3;
-
-    /** Ticks to wait before a revive completes: base, plus a penalty per prior death. */
-    public static int reviveDelayTicks(int deathCount) {
-        return Math.min(20 * 60, 20 * (5 + 5 * Math.max(0, deathCount - 1)));
-    }
-
     /** The material list the GUI shows, with the amounts the player must supply. */
     public static List<ItemStack> reviveMaterials() {
         return REVIVE_MATERIALS;
@@ -199,41 +191,12 @@ public final class MaidManagerService {
         return true;
     }
 
-    /** Number of shrine blocks the player is carrying, for the shrine-based revive. */
-    public static int countShrines(ServerPlayer player) {
-        return player.getInventory().countItem(
-                com.github.tartaricacid.touhoulittlemaid.init.InitBlocks.SHRINE.get().asItem());
-    }
-
-    public static boolean hasShrineAlternative(ServerPlayer player) {
-        return countShrines(player) >= SHRINE_ALTERNATIVE_COUNT;
-    }
-
     /**
-     * Consumes whichever payment the player chose.
+     * Consumes the altar materials.
      *
-     * @param useShrines true to spend {@value #SHRINE_ALTERNATIVE_COUNT} shrines instead of
-     *                   the altar materials
      * @return true when payment succeeded and something was actually consumed
      */
-    private static boolean payForRevive(ServerPlayer player, boolean useShrines) {
-        if (useShrines) {
-            if (!hasShrineAlternative(player)) {
-                return false;
-            }
-            int remaining = SHRINE_ALTERNATIVE_COUNT;
-            var shrineItem = com.github.tartaricacid.touhoulittlemaid.init.InitBlocks.SHRINE.get().asItem();
-            for (int i = 0; i < player.getInventory().getContainerSize() && remaining > 0; i++) {
-                ItemStack stack = player.getInventory().getItem(i);
-                if (stack.is(shrineItem)) {
-                    int take = Math.min(remaining, stack.getCount());
-                    stack.shrink(take);
-                    remaining -= take;
-                }
-            }
-            return remaining == 0;
-        }
-
+    private static boolean payForRevive(ServerPlayer player) {
         if (!hasReviveMaterials(player)) {
             return false;
         }
@@ -252,16 +215,17 @@ public final class MaidManagerService {
     }
 
     /**
-     * Starts a revive: validates, takes payment, then waits out the delay.
+     * Revives a fallen maid: validates, takes the materials, and puts her back immediately.
      *
-     * <p>Payment is taken up front rather than on completion, so a player cannot start a
-     * revive, walk away, and keep the materials. The in-flight cast is recorded in
-     * {@link MaidDeathStorage} rather than in memory, so a server restart mid-cast resumes it
-     * instead of silently swallowing the payment.
+     * <p>There is no cast time on this route. The waiting period and the shrine alternative
+     * were both specified as part of the upgrade panel, which does not exist yet, so reviving
+     * here is a straight swap - materials in, maid out. Payment and placement therefore happen
+     * in one step, which is also why nothing needs to be persisted mid-revive: there is no
+     * window in which the player has paid but the maid has not come back.
      *
      * @return a result describing what happened, so the GUI can report it
      */
-    public static ReviveResult beginRevive(ServerPlayer player, UUID maidId, boolean useShrines) {
+    public static ReviveResult beginRevive(ServerPlayer player, UUID maidId) {
         if (!canControl(player, maidId)) {
             return ReviveResult.NOT_OWNED;
         }
@@ -270,74 +234,17 @@ public final class MaidManagerService {
         if (dead == null) {
             return ReviveResult.NOT_DEAD;
         }
-        if (storage.isRevivePending(maidId)) {
-            return ReviveResult.ALREADY_PENDING;
+        if (!payForRevive(player)) {
+            return ReviveResult.NEED_MATERIALS;
         }
-        // Reviving across dimensions would drop her at the wrong place, so require proximity
-        // to the player instead of guessing a safe spot in another world.
-        if (!payForRevive(player, useShrines)) {
-            return useShrines ? ReviveResult.NEED_SHRINES : ReviveResult.NEED_MATERIALS;
+        if (!finishRevive(player, maidId)) {
+            // Placement failed: give the materials back so the attempt is not wasted.
+            refundRevive(player);
+            return ReviveResult.FAILED;
         }
-
-        long readyAt = player.getServer().getTickCount() + reviveDelayTicks(dead.deathCount());
-        storage.startRevive(maidId, readyAt, useShrines);
-        player.displayClientMessage(Component.translatable("message.maid_legion.revive_started",
-                dead.name(), reviveDelayTicks(dead.deathCount()) / 20), true);
+        player.displayClientMessage(Component.translatable("message.maid_legion.revive_done",
+                dead.name()), true);
         return ReviveResult.STARTED;
-    }
-
-    /**
-     * Advances pending revives; completes one when its delay elapses.
-     *
-     * <p>Reads the casts from {@link MaidDeathStorage}, so ones started before a restart are
-     * picked up again. The ready tick is world time, which keeps counting across a restart, so
-     * a long cast is not reset - it simply finishes on schedule.
-     */
-    public static void tickPendingRevives(MinecraftServer server) {
-        MaidDeathStorage storage = MaidDeathStorage.get(server);
-        Map<UUID, MaidDeathStorage.PendingRevive> pending = storage.pendingRevives();
-        if (pending.isEmpty()) {
-            return;
-        }
-        long now = server.getTickCount();
-        for (var entry : pending.entrySet()) {
-            UUID maidId = entry.getKey();
-            MaidDeathStorage.PendingRevive revive = entry.getValue();
-
-            // Re-resolve the owner from the death record, so a cast survives a restart even
-            // though we no longer hold the player object that started it.
-            ServerPlayer owner = findOwnerOfDeadMaid(server, maidId);
-            if (owner == null) {
-                // Owner has not logged back in yet. Leave the cast alone: it is already paid
-                // for, and clearing it here would destroy the payment this change protects.
-                continue;
-            }
-            if (now < revive.readyAtTick()) {
-                continue;
-            }
-            storage.clearRevive(maidId);
-            if (finishRevive(owner, maidId)) {
-                owner.displayClientMessage(
-                        Component.translatable("message.maid_legion.revive_done"), true);
-            } else {
-                // Placement failed: give the materials back so the attempt is not wasted.
-                refundRevive(server, owner, revive.useShrines());
-                owner.sendSystemMessage(Component.translatable("message.maid_legion.revive_failed"));
-            }
-            com.dsh.maidmanager.network.MaidActionHandler.refresh(owner);
-        }
-    }
-
-    /** Finds the online player who owns this dead maid's record, or null if they are away. */
-    @Nullable
-    private static ServerPlayer findOwnerOfDeadMaid(MinecraftServer server, UUID maidId) {
-        MaidDeathStorage storage = MaidDeathStorage.get(server);
-        for (ServerPlayer candidate : server.getPlayerList().getPlayers()) {
-            if (storage.get(candidate.getUUID(), maidId) != null) {
-                return candidate;
-            }
-        }
-        return null;
     }
 
     /**
@@ -369,7 +276,7 @@ public final class MaidManagerService {
                     player.getYRot(), 0.0F);
             maid.setDeltaMovement(0.0D, 0.0D, 0.0D);
             // She comes back at full health; a revive that returned her at 1 HP would just get
-            // her killed again during the delay the player already waited through.
+            // her killed again straight away.
             maid.setHealth(maid.getMaxHealth());
             level.addFreshEntity(maid);
             maid.spawnExplosionParticle();
@@ -388,25 +295,14 @@ public final class MaidManagerService {
     /**
      * Gives back whatever {@link #payForRevive} took.
      *
-     * <p>Takes the player directly rather than looking them up from the cast, because the cast
-     * no longer stores an owner id - it survives restarts, so the player object that started it
-     * may be long gone. Overflow is dropped at their feet rather than discarded, so a full
-     * inventory cannot quietly eat the refund.
+     * <p>Overflow is dropped at the player's feet rather than discarded, so a full inventory
+     * cannot quietly eat the refund.
      */
-    private static void refundRevive(MinecraftServer server, ServerPlayer owner, boolean useShrines) {
-        if (useShrines) {
-            ItemStack shrines = new ItemStack(
-                    com.github.tartaricacid.touhoulittlemaid.init.InitBlocks.SHRINE.get().asItem(),
-                    SHRINE_ALTERNATIVE_COUNT);
-            if (!owner.getInventory().add(shrines)) {
-                owner.drop(shrines, false);
-            }
-        } else {
-            for (ItemStack required : REVIVE_MATERIALS) {
-                ItemStack copy = required.copy();
-                if (!owner.getInventory().add(copy)) {
-                    owner.drop(copy, false);
-                }
+    private static void refundRevive(ServerPlayer owner) {
+        for (ItemStack required : REVIVE_MATERIALS) {
+            ItemStack copy = required.copy();
+            if (!owner.getInventory().add(copy)) {
+                owner.drop(copy, false);
             }
         }
     }
@@ -416,9 +312,9 @@ public final class MaidManagerService {
         STARTED,
         NOT_OWNED,
         NOT_DEAD,
-        ALREADY_PENDING,
         NEED_MATERIALS,
-        NEED_SHRINES
+        /** Payment went through but she could not be placed; the materials were refunded. */
+        FAILED
     }
 
     private static MaidEntry present(EntityMaid maid, ServerPlayer player, MaidRegistry registry) {

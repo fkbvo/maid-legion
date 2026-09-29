@@ -115,17 +115,6 @@ public final class MaidEntry {
         return state == MaidState.DEAD;
     }
 
-    /**
-     * The revive delay in ticks: longer each time she dies.
-     *
-     * <p>{@code 5s + 5s per prior death}, capped at 60s so a much-revived maid stays usable.
-     * Mirrors {@code MaidManagerService.reviveDelayTicks} so the client can show a countdown
-     * without asking the server.
-     */
-    public int reviveDelayTicks() {
-        return Math.min(20 * 60, 20 * (5 + 5 * Math.max(0, deathCount - 1)));
-    }
-
     public float healthFraction() {
         return maxHealth <= 0.0F ? 0.0F : Math.max(0.0F, Math.min(1.0F, health / maxHealth));
     }

@@ -79,7 +79,6 @@ public final class MaidManagerMod {
     public void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
         MaidManagerService.tickPendingSummons(server);
-        MaidManagerService.tickPendingRevives(server);
         // Re-assert held chunks about once a second; cheap, and covers maids that moved.
         if (server.getTickCount() % 20 == 0) {
             MaidManagerService.tickForceLoadedMaids(server);
