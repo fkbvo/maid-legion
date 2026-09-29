@@ -124,4 +124,58 @@ public class MaidReviveRulesTest {
     public void shrineAlternativeIsThreeShrines() {
         assertEquals(3, SHRINE_COUNT);
     }
+
+    /**
+     * A fallen maid must be tickable, or the revive buttons can never light up.
+     *
+     * <p>Regression guard for a shipped bug. The row's tick box was gated on
+     * {@code summonable() || storeable()}, and a dead maid is neither - so her tick box was
+     * dead, {@code selectedIds()} stayed empty however hard the player clicked, and
+     * {@code hasDeadSelected()} was false forever. Revive was unreachable from the UI even
+     * though the server side worked. "Can this row be ticked" is a different question from
+     * "can this row be summoned", and the two must not be conflated again.
+     *
+     * <p>{@code MaidManagerScreen}'s {@code Row.selectable()} implements the rule below; it
+     * is a private nested class, so the rule is restated here over the same predicates the
+     * button-enabling logic uses.
+     */
+    @Test
+    public void deadMaidIsTickableSoReviveCanBeReached() {
+        for (MaidState state : MaidState.values()) {
+            MaidEntry e = entry(state, 1, true);
+            // Mirrors MaidManagerScreen.Row.selectable(). UNLOADED with the switch off is
+            // deliberately excluded below rather than here, because this helper builds that
+            // entry with forceLoad=false.
+            boolean tickable = e.summonable() || e.storeable() || e.revivable();
+            if (state == MaidState.UNLOADED) {
+                assertFalse("an unloaded maid with the switch off has nothing to act on, "
+                        + "so she stays untickable by design", tickable);
+                continue;
+            }
+            assertTrue("every other state must let the player tick its row, including "
+                    + state, tickable);
+        }
+    }
+
+    /**
+     * Summon and Store must not light up for a dead-only selection.
+     *
+     * <p>The second half of the same bug: once dead rows became tickable, "something is
+     * ticked" stopped implying "summon works". The buttons are gated on a state-filtered
+     * count, not on the raw selection size, so ticking only a fallen maid leaves Summon and
+     * Store greyed out instead of firing a packet the server rejects.
+     */
+    @Test
+    public void deadOnlySelectionEnablesReviveButNotSummonOrStore() {
+        MaidEntry dead = entry(MaidState.DEAD, 1, true);
+
+        assertTrue("revive must be available for a dead selection", dead.revivable());
+        assertFalse("summon must stay greyed out", dead.summonable());
+        assertFalse("store must stay greyed out", dead.storeable());
+
+        MaidEntry alive = entry(MaidState.PRESENT, 0, false);
+        assertTrue("a live maid still summons", alive.summonable());
+        assertTrue("and stores", alive.storeable());
+        assertFalse("but never revives", alive.revivable());
+    }
 }
