@@ -57,7 +57,7 @@ public class MaidManagerScreen extends Screen {
     private static final int LEGION_W = 96;
     private static final int SUMMON_W = 96;
     private static final int STORE_W = 96;
-    private static final int REFRESH_W = 60;
+    private static final int REFRESH_W = 96;
 
     // Per-row action chips. Drawn and hit-tested by hand, like the star, tick box, switch and
     // badge beside them, so they scroll with the list for free instead of needing repositioning.
@@ -118,10 +118,11 @@ public class MaidManagerScreen extends Screen {
         // Footer: one legion-wide button, then the batch actions. The two per-maid actions now
         // live on each row, where they act on exactly one maid without a selection step.
         int[] widths = {LEGION_W, SUMMON_W, STORE_W, REFRESH_W};
+        // One gap for the whole row. A wider gap after the first button was meant to separate the
+        // legion action from the batch ones, but combined with a narrower Refresh it left the row
+        // ending unevenly, which reads as a mistake rather than as grouping.
         int gap = 6;
-        // Wider than `gap`, so the legion button does not read as part of the batch run.
-        int groupGap = 18;
-        int total = widths[0] + widths[1] + widths[2] + widths[3] + 2 * gap + groupGap;
+        int total = widths[0] + widths[1] + widths[2] + widths[3] + 3 * gap;
         boolean wrap = total > this.width - 16;
         this.listBottom = this.height - (wrap ? FOOTER_HEIGHT * 2 - 8 : FOOTER_HEIGHT);
 
@@ -132,7 +133,7 @@ public class MaidManagerScreen extends Screen {
             int row1 = widths[0] + gap + widths[1] + gap + widths[2] + gap + widths[3];
             int x = this.width / 2 - row1 / 2;
             addLegionButton(x, row1Y, widths[0]);
-            x += widths[0] + groupGap;
+            x += widths[0] + gap;
             this.summonButton = addRenderableWidget(Button.builder(
                             Component.translatable("gui.touhou_maid_legion.summon"), b -> summonSelected())
                     .bounds(x, row1Y, widths[1], 20).build());
@@ -148,7 +149,7 @@ public class MaidManagerScreen extends Screen {
         } else {
             int x = this.width / 2 - total / 2;
             addLegionButton(x, row2Y, widths[0]);
-            x += widths[0] + groupGap;
+            x += widths[0] + gap;
             this.summonButton = addRenderableWidget(Button.builder(
                             Component.translatable("gui.touhou_maid_legion.summon"), b -> summonSelected())
                     .bounds(x, row2Y, widths[1], 20).build());
