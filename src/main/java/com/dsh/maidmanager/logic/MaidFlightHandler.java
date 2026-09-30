@@ -7,6 +7,7 @@ import com.github.tartaricacid.touhoulittlemaid.entity.passive.EntityMaid;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -50,8 +51,29 @@ public final class MaidFlightHandler {
      */
     private static final double MAX_CHASE_DISTANCE = 48.0;
 
-    /** Close enough: stop pushing and let her hover where she is. */
-    private static final double ARRIVE_DISTANCE = 3.0;
+    /** Close enough while following: stop pushing and let her hover where she is. */
+    private static final double FOLLOW_ARRIVE = 3.0;
+
+    /**
+     * Close enough while chasing.
+     *
+     * <p>Much tighter than the follow distance on purpose: TLM's melee behaviour only swings once
+     * {@code isWithinMeleeAttackRange} holds, and the walk behaviour that would normally close that
+     * last gap is going through the navigation we are holding down. Stopping three blocks out
+     * would leave her hanging next to a target she never hits.
+     */
+    private static final double CHASE_ARRIVE = 1.2;
+
+    /**
+     * How much of the gap between current and wanted velocity is closed each tick.
+     *
+     * <p>Snapping straight to the wanted velocity makes every direction change instant, which is
+     * what reads as a mob being yanked around rather than flying.
+     */
+    private static final double ACCELERATION = 0.35;
+
+    /** Degrees of yaw she may turn per tick. */
+    private static final float TURN_PER_TICK = 25.0F;
 
     /** Blocks per tick while following. */
     private static final double FOLLOW_SPEED = 0.35;
@@ -85,7 +107,9 @@ public final class MaidFlightHandler {
                 release(maid);
                 return;
             }
-            assist(maid, goal, goal instanceof ServerPlayer ? FOLLOW_SPEED : CHASE_SPEED);
+            boolean chasing = !(goal instanceof ServerPlayer);
+            assist(maid, goal, chasing ? CHASE_SPEED : FOLLOW_SPEED,
+                    chasing ? CHASE_ARRIVE : FOLLOW_ARRIVE);
         } catch (Throwable t) {
             // Never let a movement quirk leave her floating: hand her back to normal gravity.
             release(maid);
@@ -155,7 +179,7 @@ public final class MaidFlightHandler {
         }
     }
 
-    private static void assist(EntityMaid maid, LivingEntity goal, double speed) {
+    private static void assist(EntityMaid maid, LivingEntity goal, double speed, double arrive) {
         maid.setNoGravity(true);
         maid.getNavigation().stop();
         // Fighting or flying, being up here must not build up fall damage.
@@ -164,16 +188,48 @@ public final class MaidFlightHandler {
 
         Vec3 delta = goal.position().subtract(maid.position());
         double distance = delta.length();
-        if (distance <= ARRIVE_DISTANCE) {
-            // Hover, but keep matching altitude so she does not drift away.
-            maid.setDeltaMovement(0.0D, verticalOnly(delta.y, speed), 0.0D);
+        Vec3 current = maid.getDeltaMovement();
+        // Face where she is going. Without this she slides sideways and backwards at her target,
+        // which is most of what made the movement look wrong.
+        faceTowards(maid, goal);
+
+        if (distance <= arrive) {
+            // Hover: bleed off horizontal drift rather than stopping dead, and keep matching
+            // altitude so she does not slowly sink or climb away.
+            maid.setDeltaMovement(current.x * 0.6D, verticalOnly(delta.y, speed), current.z * 0.6D);
             return;
         }
-        Vec3 step = delta.normalize().scale(speed);
+
+        Vec3 want = delta.normalize().scale(speed);
         // Snap altitude when close enough vertically, otherwise she oscillates around the target.
-        double dy = Math.abs(delta.y) < VERTICAL_SLACK ? 0.0D : step.y;
-        maid.setDeltaMovement(step.x, dy, step.z);
+        if (Math.abs(delta.y) < VERTICAL_SLACK) {
+            want = new Vec3(want.x, 0.0D, want.z);
+        }
+        Vec3 next = current.add(want.subtract(current).scale(ACCELERATION));
+        if (next.length() > speed) {
+            // Never outrun the wanted speed; easing must not overshoot on a sharp turn.
+            next = next.normalize().scale(speed);
+        }
+        maid.setDeltaMovement(next);
         maid.hasImpulse = true;
+    }
+
+    /**
+     * Turns her to look at the goal, at a limited rate.
+     *
+     * <p>Applied straight to the entity as well as through the look control: the maid's own AI runs
+     * between our ticks and would otherwise fight it, and a body that faces one way while moving
+     * another is the single most obvious sign that something is being driven by hand.
+     */
+    private static void faceTowards(EntityMaid maid, LivingEntity goal) {
+        double dx = goal.getX() - maid.getX();
+        double dz = goal.getZ() - maid.getZ();
+        float wanted = (float) (Mth.atan2(dz, dx) * (180.0D / Math.PI)) - 90.0F;
+        float turn = Mth.clamp(Mth.wrapDegrees(wanted - maid.getYRot()), -TURN_PER_TICK, TURN_PER_TICK);
+        float yaw = maid.getYRot() + turn;
+        maid.setYRot(yaw);
+        maid.yRotO = yaw;
+        maid.setYHeadRot(yaw);
     }
 
     private static double verticalOnly(double dy, double speed) {

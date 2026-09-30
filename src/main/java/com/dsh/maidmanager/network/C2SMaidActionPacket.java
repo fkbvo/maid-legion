@@ -81,11 +81,21 @@ public class C2SMaidActionPacket {
             }
             case SUMMON -> {
                 int budget = Math.min(msg.targets.size(), Math.max(1, Config.COMMON.maxSummonPerAction.get()));
-                for (int i = 0; i < budget; i++) {
-                    if (summonOne(player, msg.targets.get(i))) {
-                        success++;
-                    } else {
-                        failed++;
+                // Checked once for the whole batch, and sent to chat rather than the action bar.
+                // Two reasons: the problem is about the player and not about any one maid, so
+                // repeating it per maid would spam; and the action bar is where the result summary
+                // goes, which is sent just afterwards and would overwrite this completely.
+                if (MaidManagerService.isAirborne(player) && anyStored(player, msg.targets, budget)) {
+                    player.displayClientMessage(
+                            Component.translatable("message.touhou_maid_legion.land_first"), false);
+                    failed += budget;
+                } else {
+                    for (int i = 0; i < budget; i++) {
+                        if (summonOne(player, msg.targets.get(i))) {
+                            success++;
+                        } else {
+                            failed++;
+                        }
                     }
                 }
                 failed += Math.max(0, msg.targets.size() - budget);
@@ -123,16 +133,7 @@ public class C2SMaidActionPacket {
      * </ol>
      */
     private static boolean summonOne(ServerPlayer player, UUID maidId) {
-        // A released maid is put on the ground, and a flying player has only air around him: every
-        // placement candidate is rejected, and the refusal used to be reported as an unloaded
-        // chunk, which sent the player looking in entirely the wrong place. Say what is actually
-        // wrong instead.
-        if (MaidStorage.get(player.getServer()).contains(player.getUUID(), maidId)
-                && MaidManagerService.isAirborne(player)) {
-            player.displayClientMessage(
-                    Component.translatable("message.touhou_maid_legion.land_first"), true);
-            return false;
-        }
+
         // Stored by us: release from NBT, no chunk loading needed.
         if (MaidManagerService.releaseStored(player, maidId)) {
             return true;
@@ -161,6 +162,20 @@ public class C2SMaidActionPacket {
         return started;
     }
 
+    /**
+     * Whether any maid in this action is one we hold as data, and so would have to be placed.
+     *
+     * <p>Only those need ground: a maid already in the world is teleported, not released.
+     */
+    private static boolean anyStored(ServerPlayer player, java.util.List<UUID> targets, int budget) {
+        MaidStorage storage = MaidStorage.get(player.getServer());
+        for (int i = 0; i < budget; i++) {
+            if (storage.contains(player.getUUID(), targets.get(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
     public static void refresh(ServerPlayer player) {
         NetworkHandler.CHANNEL.send(
                 PacketDistributor.PLAYER.with(() -> player),
