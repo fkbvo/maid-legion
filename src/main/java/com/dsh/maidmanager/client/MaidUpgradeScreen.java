@@ -55,8 +55,18 @@ public class MaidUpgradeScreen extends Screen {
     private static final int COL_LEVEL = 150;
     private static final int COL_BAR = 250;
     private static final int COL_EFFECT = 390;
-    private static final int COL_COST = 560;
-    private static final int COL_BUTTON = 660;
+    /**
+     * Widest the content area may get.
+     *
+     * <p>The right-hand columns are placed relative to this, not at absolute offsets: an absolute
+     * button column is wrong on any screen narrower than itself, and the previous value was wider
+     * than a 640px screen, so every buy button was drawn off the right edge and could never be
+     * clicked.
+     */
+    private static final int CONTENT_MAX = 760;
+    /** Width of a row's buy button, and the margin between it and the content edge. */
+    private static final int BUTTON_W = 60;
+    private static final int RIGHT_MARGIN = 8;
 
     private static final int GLOBAL_FUNDS_TOP = 50;
     private static final int GLOBAL_FUNDS_H = 74;
@@ -131,7 +141,7 @@ public class MaidUpgradeScreen extends Screen {
         singleButtons.clear();
         globalButtons.clear();
 
-        this.contentWidth = Math.min(this.width - 20, COL_BUTTON + 90);
+        this.contentWidth = Math.min(this.width - 20, CONTENT_MAX);
         this.contentLeft = (this.width - contentWidth) / 2;
         this.listTop = LIST_TOP_SINGLE;
         // Footer holds the two tabs and Close.
@@ -170,7 +180,7 @@ public class MaidUpgradeScreen extends Screen {
             Button button = addRenderableWidget(Button.builder(
                             Component.translatable("gui.touhou_maid_legion.upgrade.buy"),
                             b -> buySingle(target))
-                    .bounds(contentLeft + COL_BUTTON, 0, 60, 18).build());
+                    .bounds(singleButtonX(), 0, BUTTON_W, 18).build());
             singleButtons.put(upgrade, button);
             rowY += ROW_H;
         }
@@ -202,6 +212,15 @@ public class MaidUpgradeScreen extends Screen {
         }
     }
 
+    /** Left edge of a row's buy button: hard against the right of the content area. */
+    private int singleButtonX() {
+        return contentLeft + contentWidth - RIGHT_MARGIN - BUTTON_W;
+    }
+
+    /** Left edge that right-aligns a cost label in the gap before the buy button. */
+    private int costRightAligned(String text) {
+        return singleButtonX() - 10 - this.font.width(text);
+    }
     private void buySingle(MaidUpgrade upgrade) {
         NetworkHandler.CHANNEL.sendToServer(new C2SUpgradePacket(maid.id, upgrade.id()));
     }
@@ -376,13 +395,13 @@ public class MaidUpgradeScreen extends Screen {
 
             if (level < max) {
                 int cost = upgrade.costFor(level);
-                graphics.drawString(this.font,
-                        Component.translatable("gui.touhou_maid_legion.upgrade.next",
-                                String.format("%,d", cost)).getString(),
-                        contentLeft + COL_COST, y + 6,
+                String costText = Component.translatable("gui.touhou_maid_legion.upgrade.next",
+                        String.format("%,d", cost)).getString();
+                graphics.drawString(this.font, costText,
+                        costRightAligned(costText), y + 6,
                         entry.experience >= cost ? COLOUR_DIM : COLOUR_RED);
             } else {
-                graphics.drawString(this.font, "-", contentLeft + COL_COST, y + 6, COLOUR_FAINT);
+                graphics.drawString(this.font, "-", costRightAligned("-"), y + 6, COLOUR_FAINT);
             }
         }
         graphics.disableScissor();
