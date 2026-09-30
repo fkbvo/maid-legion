@@ -306,22 +306,6 @@ public final class MaidProgressionService {
         }
     }
 
-    /** Gives {@code amount} shrines back, used when a revival is cancelled or fails. */
-    public static void refundShrines(ServerPlayer player, int amount) {
-        if (amount <= 0) {
-            return;
-        }
-        try {
-            net.minecraft.world.item.ItemStack stack =
-                    new net.minecraft.world.item.ItemStack(InitItems.SHRINE.get(), amount);
-            // Dropped at the player if the inventory is full, so a refund can never vanish.
-            if (!player.getInventory().add(stack)) {
-                player.drop(stack, false);
-            }
-        } catch (Throwable t) {
-            MaidManagerMod.LOGGER.error("Could not refund shrines for {}", player.getUUID(), t);
-        }
-    }
 
     // ------------------------------------------------------------------
     // The P-point bank

@@ -82,8 +82,6 @@
   "message.touhou_maid_legion.open_gui_wrong_dim": "打不开她的界面：她在另一个维度。请先召唤她过来。",
 
   "gui.touhou_maid_legion.upgrade.title": "强化",
-  "gui.touhou_maid_legion.upgrade.tab_single": "单体强化",
-  "gui.touhou_maid_legion.upgrade.tab_global": "全军强化",
   "gui.touhou_maid_legion.upgrade.buy": "升级",
   "gui.touhou_maid_legion.upgrade.maxed": "已满级",
   "gui.touhou_maid_legion.upgrade.owned": "已拥有",
@@ -213,8 +211,6 @@
   "gui.touhou_maid_legion.col.actions": "操作",
   "gui.touhou_maid_legion.legion_upgrade": "全军强化",
   "gui.touhou_maid_legion.cast.remaining": "读条 %s 秒",
-  "gui.touhou_maid_legion.revive.shrine": "神龛",
-  "gui.touhou_maid_legion.revive.shrine.tooltip": "消耗 %s 个神龛，不用材料，但要读条",
   "gui.touhou_maid_legion.bank.drain_lamp": "从亭灯提取",
   "gui.touhou_maid_legion.bank.deposit_items": "存入P点物品",
   "gui.touhou_maid_legion.bank.shrines": "神龛 %s / %s（用于解锁）",

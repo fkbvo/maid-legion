@@ -82,8 +82,6 @@
   "message.touhou_maid_legion.open_gui_wrong_dim": "Cannot open her GUI: she is in another dimension. Summon her over first.",
 
   "gui.touhou_maid_legion.upgrade.title": "Upgrades",
-  "gui.touhou_maid_legion.upgrade.tab_single": "Per maid",
-  "gui.touhou_maid_legion.upgrade.tab_global": "Whole legion",
   "gui.touhou_maid_legion.upgrade.buy": "Upgrade",
   "gui.touhou_maid_legion.upgrade.maxed": "Maxed",
   "gui.touhou_maid_legion.upgrade.owned": "Owned",
@@ -213,8 +211,6 @@
   "gui.touhou_maid_legion.col.actions": "Actions",
   "gui.touhou_maid_legion.legion_upgrade": "Legion upgrades",
   "gui.touhou_maid_legion.cast.remaining": "Casting %ss",
-  "gui.touhou_maid_legion.revive.shrine": "Shrine",
-  "gui.touhou_maid_legion.revive.shrine.tooltip": "Costs %s shrines, no materials, but channelled",
   "gui.touhou_maid_legion.bank.drain_lamp": "Drain lamp",
   "gui.touhou_maid_legion.bank.deposit_items": "Bank P items",
   "gui.touhou_maid_legion.bank.shrines": "Shrines %s / %s (to unlock)",
