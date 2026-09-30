@@ -9,6 +9,9 @@ version = "${mod_version}"
 displayName = "${mod_display_name}"
 authors = "${mod_authors}"
 description = '''${mod_description}'''
+# Shown in the in-game mod list. Resolved relative to the jar root, which is where
+# src/main/resources/icon.png lands.
+logoFile = "icon.png"
 
 # Targets Minecraft 1.21.1 on NeoForge. Unlike the 1.20 branch, this file must be named
 # neoforge.mods.toml: NeoForge renamed it and no longer reads META-INF/mods.toml.
