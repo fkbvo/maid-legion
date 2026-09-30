@@ -117,6 +117,13 @@ public class MaidUpgradeScreen extends Screen {
 
     /** Server pushed a new snapshot: pick up the new levels and experience for this maid. */
     public void updateEntries(List<MaidEntry> newEntries) {
+        // The legion tab has no single maid, so there is nothing to look her up by. Checked
+        // before the loop rather than inside it: every bank action and every purchase makes the
+        // server push a fresh list, so without this the whole legion tab throws on first use.
+        if (this.maid == null) {
+            this.rebuildWidgets();
+            return;
+        }
         MaidEntry refreshed = null;
         for (MaidEntry candidate : newEntries) {
             if (candidate.id.equals(maid.id)) {

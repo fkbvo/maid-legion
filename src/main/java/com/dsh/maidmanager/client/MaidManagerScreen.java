@@ -325,6 +325,10 @@ public class MaidManagerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // Drawn first. 1.21 moved the blur + dim pass from renderBackground into super.render(),
+        // so calling it last (as 1.20 could) dimmed our own list instead of the world behind it.
+        // The widgets it draws are repainted at the end of this method.
+        super.render(graphics, mouseX, mouseY, partialTick);
         // 1.21 removed Screen.renderBackground(GuiGraphics); the blur + dim pass is now
         // renderBackground(GuiGraphics, int, int, float) and is invoked by super.render().
         // Calling the old one-argument form would not compile.
@@ -365,7 +369,14 @@ public class MaidManagerScreen extends Screen {
         }
 
         renderScrollbar(graphics);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        // Widgets are repainted here rather than by super.render, which now runs first so that
+        // the dim pass lands behind the content instead of over it. Drawing a button twice is
+        // idempotent - the second pass paints exactly the same pixels.
+        for (var widget : this.renderables) {
+            if (widget instanceof Button button) {
+                button.render(graphics, mouseX, mouseY, partialTick);
+            }
+        }
 
         // The selection counter sits in the footer band, *below* the list's bottom rule.
         // Drawing it above the rule made it overlap the last visible maid's name.
