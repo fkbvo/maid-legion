@@ -25,6 +25,12 @@
 
 ## 更新日志
 
+### 1.2.1
+
+- **修复：顶部工具栏「★只看收藏」与「?」之间裂开一道 68 像素的空洞。** 1.2.0 删掉「反选」后把「?」往右挪了，却忘了同时把「★只看收藏」也挪过去。
+- **改进：底部按钮分成两簇。** 「打开女仆界面 / 强化」作用于**单只**女仆，「一键召唤 / 一键收回 / 刷新」作用于**批量**；两簇之间用更宽的间距隔开，一眼能看出区别。两簇内部间距统一为 6 像素。
+- 顶部工具栏四个按钮的间距现在统一为 6 像素，右边距 2 像素。
+
 ### 1.2.0
 
 - **新增：强化面板，两个标签页。** 在终端里勾选**恰好一只**女仆，点「强化」进入。两个页签的定位完全不同：
@@ -395,7 +401,7 @@ TLM 自己有一个机制：**区块卸载前**，如果女仆是同维度、且
 
 1. 安装 **Minecraft 1.20 或 1.20.1**，以及对应的 **Forge 47.x**
 2. 安装 **车万女仆（Touhou Little Maid）1.5.0+** Forge 版（`touhou_little_maid`）
-3. 下载 **[`maid_legion-1.2.0-forge+mc1.20.1.jar`](https://github.com/fkbvo/maid-legion/releases/download/v1.2.0%2Bmc1.20.1/maid_legion-1.2.0-forge%2Bmc1.20.1.jar)**，放进 `mods/`
+3. 下载 **[`maid_legion-1.2.1-forge+mc1.20.1.jar`](https://github.com/fkbvo/maid-legion/releases/download/v1.2.1%2Bmc1.20.1/maid_legion-1.2.1-forge%2Bmc1.20.1.jar)**，放进 `mods/`
 
 > 全部版本见 **[Releases](https://github.com/fkbvo/maid-legion/releases)**。这是 1.20 / 1.20.1（Forge）的构建；
 > 1.21.1（NeoForge）请到 Releases 里找另一个。
@@ -433,7 +439,7 @@ gradlew.bat build
 gradlew.bat runClient
 ```
 
-产物：`build/libs/maid_legion-1.2.0-forge+mc1.20.1.jar`
+产物：`build/libs/maid_legion-1.2.1-forge+mc1.20.1.jar`
 
 文件名格式为 `<模组id>-<版本>-<加载器>+mc<MC版本>`，与车万女仆官方的
 `touhoulittlemaid-1.5.3-forge+mc1.20.1.jar` 保持一致的风格。
