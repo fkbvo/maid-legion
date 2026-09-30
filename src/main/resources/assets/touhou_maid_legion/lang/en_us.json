@@ -220,5 +220,6 @@
   "gui.touhou_maid_legion.bank.shrines": "Shrines %s / %s",
   "gui.touhou_maid_legion.bank.lamp_none": "No lamp bound: sneak + right-click one with a gohei",
   "gui.touhou_maid_legion.upgrade.enabled": "On",
-  "gui.touhou_maid_legion.upgrade.disabled": "Off"
+  "gui.touhou_maid_legion.upgrade.disabled": "Off",
+  "gui.touhou_maid_legion.upgrade.pick_one": "Open this from a maid row's Upgrade chip."
 }

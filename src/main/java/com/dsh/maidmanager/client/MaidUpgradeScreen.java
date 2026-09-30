@@ -14,6 +14,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
 import java.util.List;
@@ -37,7 +38,8 @@ import java.util.Map;
  */
 public class MaidUpgradeScreen extends Screen {
 
-    private enum Tab {
+    /** Which tab to open on. Public so the terminal can jump straight to either one. */
+    public enum Tab {
         SINGLE,
         GLOBAL
     }
@@ -89,10 +91,20 @@ public class MaidUpgradeScreen extends Screen {
     private Button tabGlobal;
 
     public MaidUpgradeScreen(Screen parent, MaidEntry maid, List<MaidEntry> entries) {
+        this(parent, maid, entries, Tab.SINGLE);
+    }
+
+    /**
+     * @param maid  null when opened from the legion button, which has no single maid to show
+     * @param initial which tab to start on
+     */
+    public MaidUpgradeScreen(Screen parent, @Nullable MaidEntry maid, List<MaidEntry> entries,
+                             Tab initial) {
         super(Component.translatable("gui.touhou_maid_legion.upgrade.title"));
         this.parent = parent;
         this.maid = maid;
         this.entries = entries;
+        this.tab = initial;
     }
 
     /** Server pushed a new snapshot: pick up the new levels and experience for this maid. */
@@ -249,8 +261,17 @@ public class MaidUpgradeScreen extends Screen {
         NetworkHandler.CHANNEL.sendToServer(new C2SPowerBankPacket(action));
     }
 
+    /**
+     * Buys an ability, or flips its switch when it is already owned and toggleable.
+     *
+     * <p>One button for both, because the two actions are mutually exclusive per ability: an
+     * unowned one can only be bought, an owned-and-toggleable one can only be switched.
+     */
     private void buyGlobal(GlobalUpgrade ability) {
-        NetworkHandler.CHANNEL.sendToServer(new C2SUpgradePacket(null, ability.id()));
+        boolean owned = progression().has(ability);
+        NetworkHandler.CHANNEL.sendToServer(new C2SUpgradePacket(null, ability.id(),
+                owned && ability.toggleable()
+                        ? C2SUpgradePacket.Mode.TOGGLE : C2SUpgradePacket.Mode.BUY));
     }
 
     // ------------------------------------------------------------------
@@ -273,6 +294,9 @@ public class MaidUpgradeScreen extends Screen {
 
     private void refreshButtonStates() {
         if (tab == Tab.SINGLE) {
+            if (maid == null) {
+                return;
+            }
             for (MaidUpgrade upgrade : MaidUpgrade.values()) {
                 Button button = singleButtons.get(upgrade);
                 if (button == null) {
@@ -295,16 +319,32 @@ public class MaidUpgradeScreen extends Screen {
                     continue;
                 }
                 boolean owned = info.has(ability);
-                button.setMessage(Component.translatable(owned
-                        ? "gui.touhou_maid_legion.upgrade.owned"
-                        : "gui.touhou_maid_legion.upgrade.buy"));
-                button.active = !owned && info.bank() >= ability.powerCost();
+                if (owned && ability.toggleable()) {
+                    // Bought and switchable: the button becomes the switch, always live, so a
+                    // player can park the ability without losing the purchase.
+                    button.setMessage(Component.translatable(info.isEnabled(ability)
+                            ? "gui.touhou_maid_legion.upgrade.enabled"
+                            : "gui.touhou_maid_legion.upgrade.disabled"));
+                    button.active = true;
+                } else {
+                    button.setMessage(Component.translatable(owned
+                            ? "gui.touhou_maid_legion.upgrade.owned"
+                            : "gui.touhou_maid_legion.upgrade.buy"));
+                    button.active = !owned && info.bank() >= ability.powerCost();
+                }
             }
         }
     }
 
     private void renderSingleTab(GuiGraphics graphics, int mouseX, int mouseY) {
         MaidEntry entry = this.maid;
+        if (entry == null) {
+            // Reached only if the tab was switched without a maid selected; harmless to explain.
+            graphics.drawString(this.font,
+                    Component.translatable("gui.touhou_maid_legion.upgrade.pick_one").getString(),
+                    contentLeft, listTop + 4, COLOUR_DIM);
+            return;
+        }
         String name = entry.name.getString();
         graphics.drawString(this.font, name + "  #" + entry.shortId(), contentLeft, SUBTITLE_Y,
                 COLOUR_LABEL);

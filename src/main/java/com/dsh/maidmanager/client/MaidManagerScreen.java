@@ -54,11 +54,17 @@ public class MaidManagerScreen extends Screen {
 
     // Footer button widths. Fixed rather than measured from the label, so a longer translation
     // cannot push the row off screen - the wrap check uses these numbers.
-    private static final int OPEN_GUI_W = 110;
-    private static final int UPGRADE_W = 56;
+    private static final int LEGION_W = 96;
     private static final int SUMMON_W = 96;
     private static final int STORE_W = 96;
     private static final int REFRESH_W = 60;
+
+    // Per-row action chips. Drawn and hit-tested by hand, like the star, tick box, switch and
+    // badge beside them, so they scroll with the list for free instead of needing repositioning.
+    private static final int CHIP_W = 44;
+    private static final int CHIP_H = 14;
+    private static final int CHIP_GAP = 4;
+    private static final int CHIP_ROW_OFFSET = 5;
 
     private final List<Row> rows = new ArrayList<>();
     private List<MaidEntry> entries = List.of();
@@ -66,8 +72,6 @@ public class MaidManagerScreen extends Screen {
     private Button summonButton;
     private Button storeButton;
     private Button favouritesButton;
-    private Button openGuiButton;
-    private Button upgradeButton;
     private double scroll;
     private int listTop;
     private int listBottom;
@@ -111,73 +115,52 @@ public class MaidManagerScreen extends Screen {
         // Footer: five buttons, centred, wrapped onto two rows when the window is too narrow to
         // hold them side by side. Widths are fixed rather than text-measured so the layout cannot
         // shift when a translation changes.
-        // Footer: five buttons in two visually separate groups, centred as a whole. The first
-        // group acts on one chosen maid, the second on the whole batch; the wider gap between
-        // them is what makes that difference readable at a glance.
-        int[] widths = {OPEN_GUI_W, UPGRADE_W, SUMMON_W, STORE_W, REFRESH_W};
+        // Footer: one legion-wide button, then the batch actions. The two per-maid actions now
+        // live on each row, where they act on exactly one maid without a selection step.
+        int[] widths = {LEGION_W, SUMMON_W, STORE_W, REFRESH_W};
         int gap = 6;
-        // Larger than `gap`, so the two groups do not read as one run of five.
+        // Wider than `gap`, so the legion button does not read as part of the batch run.
         int groupGap = 18;
-        int total = widths[0] + widths[1] + widths[2] + widths[3] + widths[4]
-                + 3 * gap + groupGap;
+        int total = widths[0] + widths[1] + widths[2] + widths[3] + 2 * gap + groupGap;
         boolean wrap = total > this.width - 16;
-        // A wrapped footer is taller, so the list has to stop higher up or the second row would
-        // be drawn over the last maid.
         this.listBottom = this.height - (wrap ? FOOTER_HEIGHT * 2 - 8 : FOOTER_HEIGHT);
 
         int row2Y = this.height - 28;
         int row1Y = wrap ? row2Y - 24 : row2Y;
 
         if (wrap) {
-            // Row 1: the single-maid actions. Row 2: the batch actions.
-            int row1 = widths[0] + gap + widths[1];
+            int row1 = widths[0] + gap + widths[1] + gap + widths[2] + gap + widths[3];
             int x = this.width / 2 - row1 / 2;
-            this.openGuiButton = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.touhou_maid_legion.open_gui"),
-                            b -> openSelectedMaidGui())
-                    .bounds(x, row1Y, widths[0], 20).build());
-            this.upgradeButton = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.touhou_maid_legion.upgrade"),
-                            b -> openUpgradeScreen())
-                    .bounds(x + widths[0] + gap, row1Y, widths[1], 20).build());
-            int row2 = widths[2] + gap + widths[3] + gap + widths[4];
-            x = this.width / 2 - row2 / 2;
+            addLegionButton(x, row1Y, widths[0]);
+            x += widths[0] + groupGap;
             this.summonButton = addRenderableWidget(Button.builder(
                             Component.translatable("gui.touhou_maid_legion.summon"), b -> summonSelected())
-                    .bounds(x, row2Y, widths[2], 20).build());
-            x += widths[2] + gap;
+                    .bounds(x, row1Y, widths[1], 20).build());
+            x += widths[1] + gap;
             this.storeButton = addRenderableWidget(Button.builder(
                             Component.translatable("gui.touhou_maid_legion.store"), b -> storeSelected())
-                    .bounds(x, row2Y, widths[3], 20).build());
-            x += widths[3] + gap;
+                    .bounds(x, row1Y, widths[2], 20).build());
+            x += widths[2] + gap;
             addRenderableWidget(Button.builder(
                             Component.translatable("gui.touhou_maid_legion.refresh"),
                             b -> ClientInput.requestRefresh())
-                    .bounds(x, row2Y, widths[4], 20).build());
+                    .bounds(x, row1Y, widths[3], 20).build());
         } else {
             int x = this.width / 2 - total / 2;
-            this.openGuiButton = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.touhou_maid_legion.open_gui"),
-                            b -> openSelectedMaidGui())
-                    .bounds(x, row2Y, widths[0], 20).build());
-            x += widths[0] + gap;
-            this.upgradeButton = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.touhou_maid_legion.upgrade"),
-                            b -> openUpgradeScreen())
-                    .bounds(x, row2Y, widths[1], 20).build());
-            x += widths[1] + groupGap;
+            addLegionButton(x, row2Y, widths[0]);
+            x += widths[0] + groupGap;
             this.summonButton = addRenderableWidget(Button.builder(
                             Component.translatable("gui.touhou_maid_legion.summon"), b -> summonSelected())
-                    .bounds(x, row2Y, widths[2], 20).build());
-            x += widths[2] + gap;
+                    .bounds(x, row2Y, widths[1], 20).build());
+            x += widths[1] + gap;
             this.storeButton = addRenderableWidget(Button.builder(
                             Component.translatable("gui.touhou_maid_legion.store"), b -> storeSelected())
-                    .bounds(x, row2Y, widths[3], 20).build());
-            x += widths[3] + gap;
+                    .bounds(x, row2Y, widths[2], 20).build());
+            x += widths[2] + gap;
             addRenderableWidget(Button.builder(
                             Component.translatable("gui.touhou_maid_legion.refresh"),
                             b -> ClientInput.requestRefresh())
-                    .bounds(x, row2Y, widths[4], 20).build());
+                    .bounds(x, row2Y, widths[3], 20).build());
         }
         // There is deliberately no revive button here. Revive lives on the fallen maid's own
         // status badge, which turns into a clickable "revive" while the cursor is over it, so
@@ -263,25 +246,6 @@ public class MaidManagerScreen extends Screen {
         }
     }
 
-    /**
-     * The one maid the selection-based footer buttons apply to, or null.
-     *
-     * <p>These buttons act on a single maid and have no sensible meaning for a batch. Returning
-     * null for any selection other than exactly one also gives the buttons their enable state, so
-     * "why is this greyed out" always has the same answer.
-     */
-    private MaidEntry soleSelected() {
-        MaidEntry found = null;
-        for (Row row : rows) {
-            if (row.selectable() && ClientSelection.isSelected(row.entry.id)) {
-                if (found != null) {
-                    return null;
-                }
-                found = row.entry;
-            }
-        }
-        return found;
-    }
 
     private List<UUID> selectedIds() {
         List<UUID> ids = new ArrayList<>();
@@ -352,31 +316,7 @@ public class MaidManagerScreen extends Screen {
                 new com.dsh.maidmanager.network.C2SReviveMaidPacket(entry.id));
     }
 
-    /**
-     * Asks the server to open the sole selected maid's own TLM GUI.
-     *
-     * <p>The server does the work, so this is deliberately fire-and-forget: she may be stored,
-     * unloaded or in another dimension, and all three are answered by the server rather than
-     * guessed at here.
-     */
-    private void openSelectedMaidGui() {
-        MaidEntry sole = soleSelected();
-        if (sole == null) {
-            return;
-        }
-        NetworkHandler.CHANNEL.sendToServer(
-                new com.dsh.maidmanager.network.C2SOpenMaidGuiPacket(sole.id));
-    }
 
-    /** Opens the two-tab upgrade panel, on the per-maid tab with the sole selection. */
-    private void openUpgradeScreen() {
-        MaidEntry sole = soleSelected();
-        if (sole == null) {
-            return;
-        }
-        net.minecraft.client.Minecraft.getInstance().setScreen(
-                new MaidUpgradeScreen(this, sole, entries));
-    }
 
     // ------------------------------------------------------------------
     // Rendering
@@ -396,16 +336,6 @@ public class MaidManagerScreen extends Screen {
         }
         if (storeButton != null) {
             storeButton.active = hasStoreableSelected();
-        }
-        // Both new buttons act on one maid and need a genuine single selection. A dead maid still
-        // counts: the upgrade panel can sell her upgrades from her death record, and opening her
-        // GUI is the server's call to accept or refuse.
-        MaidEntry sole = soleSelected();
-        if (openGuiButton != null) {
-            openGuiButton.active = sole != null;
-        }
-        if (upgradeButton != null) {
-            upgradeButton.active = sole != null && sole.upgradable();
         }
 
         // Column headers first, so the toolbar widgets drawn by super.render() sit above them
@@ -449,6 +379,105 @@ public class MaidManagerScreen extends Screen {
         }
     }
 
+    /**
+     * The label a badge shows when it is not split or casting.
+     *
+     * <p>A channelling revival shows its remaining time here rather than as a bare "fallen": the
+     * wait is the whole point of that route, so it is what the player wants to see.
+     */
+    private Component badgeLabel(MaidEntry entry) {
+        if (entry.castingRevive()) {
+            long now = this.minecraft.level == null ? 0L : this.minecraft.level.getGameTime();
+            int seconds = Math.round(entry.reviveCastRemaining(now) / 20.0F);
+            return Component.translatable("gui.touhou_maid_legion.cast.remaining", seconds);
+        }
+        return Component.translatable(entry.state.translationKey());
+    }
+
+    /**
+     * Draws the two per-row action chips.
+     *
+     * <p>These act on exactly one maid, so putting them in the row removes the old "tick exactly
+     * one maid first, then press a footer button" step. Drawn and hit-tested by hand for the same
+     * reason the star and switch are: they then scroll with the list instead of needing to be
+     * repositioned on every scroll, and there is no widget per maid.
+     */
+    /**
+     * Handles a click on one of this row's action chips.
+     *
+     * @return true when the click was consumed
+     */
+    private boolean mobileChipsHit(Row row, double mouseX) {
+        MaidEntry entry = row.entry;
+        if (mouseX >= chipX(1) && mouseX <= chipX(1) + CHIP_W) {
+            if (entry.state != MaidState.PRESENT && entry.state != MaidState.STORED) {
+                return true;
+            }
+            NetworkHandler.CHANNEL.sendToServer(
+                    new com.dsh.maidmanager.network.C2SOpenMaidGuiPacket(entry.id));
+            return true;
+        }
+        if (mouseX >= chipX(0) && mouseX <= chipX(0) + CHIP_W) {
+            if (entry.upgradable()) {
+                net.minecraft.client.Minecraft.getInstance().setScreen(
+                        new MaidUpgradeScreen(this, entry, entries,
+                                MaidUpgradeScreen.Tab.SINGLE));
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /** Opens the upgrade panel on the legion tab. Needs no selection: it is player-wide. */
+    private void addLegionButton(int x, int y, int width) {
+        addRenderableWidget(Button.builder(
+                        Component.translatable("gui.touhou_maid_legion.legion_upgrade"),
+                        b -> net.minecraft.client.Minecraft.getInstance().setScreen(
+                                new MaidUpgradeScreen(this, null, entries,
+                                        MaidUpgradeScreen.Tab.GLOBAL)))
+                .bounds(x, y, width, 20).build());
+    }
+    private void renderRowChips(GuiGraphics graphics, Row row, int y, int mouseX, int mouseY,
+                                boolean hovered) {
+        MaidEntry entry = row.entry;
+        boolean guiEnabled = entry.state == MaidState.PRESENT || entry.state == MaidState.STORED;
+        boolean upEnabled = entry.upgradable();
+        drawChip(graphics, chipX(1), y, "gui.touhou_maid_legion.row.open_gui", guiEnabled,
+                hovered && mouseX >= chipX(1) && mouseX <= chipX(1) + CHIP_W);
+        drawChip(graphics, chipX(0), y, "gui.touhou_maid_legion.row.upgrade", upEnabled,
+                hovered && mouseX >= chipX(0) && mouseX <= chipX(0) + CHIP_W);
+    }
+
+    private void drawChip(GuiGraphics graphics, int x, int y, String key, boolean enabled,
+                          boolean hovered) {
+        int fill = !enabled ? 0xFF2A2A2A : (hovered ? 0xFF5C5C5C : 0xFF3C3C3C);
+        graphics.fill(x, y + CHIP_ROW_OFFSET, x + CHIP_W, y + CHIP_ROW_OFFSET + CHIP_H, fill);
+        graphics.drawCenteredString(this.font, Component.translatable(key), x + CHIP_W / 2,
+                y + CHIP_ROW_OFFSET + 2,
+                enabled ? (hovered ? 0xFFFFFFFF : 0xFFCCCCCC) : 0xFF6E6E6E);
+    }
+
+    /**
+     * A hairline across the row showing how far a shrine revival has channelled.
+     *
+     * <p>Read from the snapshot's absolute end tick rather than a countdown, so it cannot drift
+     * between refreshes.
+     */
+    private void renderCastBar(GuiGraphics graphics, MaidEntry entry, int y) {
+        int total = entry.reviveCastTotal;
+        if (total <= 0) {
+            return;
+        }
+        long now = this.minecraft.level == null ? 0L : this.minecraft.level.getGameTime();
+        int left = entry.reviveCastRemaining(now);
+        float done = 1.0F - (left / (float) total);
+        int width = listRight - listLeft;
+        int barY = y + ROW_HEIGHT - 2;
+        graphics.fill(listLeft, barY, listRight, barY + 1, 0xFF101010);
+        graphics.fill(listLeft, barY, listLeft + Math.max(1, (int) (width * done)), barY + 1,
+                0xFF7E57C2);
+    }
+
     private void renderRow(GuiGraphics graphics, Row row, int y, int mouseX, int mouseY) {
         MaidEntry entry = row.entry;
         boolean hovered = mouseY >= y && mouseY < y + ROW_HEIGHT
@@ -488,6 +517,11 @@ public class MaidManagerScreen extends Screen {
         Component sub = subtitle(entry);
         graphics.drawString(this.font, sub, textX, y + 13, 0xFFA0A0A0, false);
 
+        renderRowChips(graphics, row, y, mouseX, mouseY, hovered);
+        if (entry.castingRevive()) {
+            renderCastBar(graphics, entry, y);
+        }
+
         // Health readout for loaded maids: the number sits immediately left of the bar so the
         // two read as one unit, instead of the number living far away in the subtitle line.
         if (entry.state == MaidState.PRESENT) {
@@ -510,29 +544,47 @@ public class MaidManagerScreen extends Screen {
         int badgeX = listRight - BADGE_W - BADGE_PAD;
         boolean badgeHovered = hovered && mouseX >= badgeX && mouseX <= badgeX + BADGE_W;
         boolean revivable = entry.revivable();
-        boolean showRevive = revivable && badgeHovered;
+        boolean casting = entry.castingRevive();
+        // A fallen maid's badge carries both revive routes, split left/right while hovered. That
+        // keeps the row layout unchanged - no extra column - and puts both prices where the
+        // revive already lived, rather than in a second widget somewhere else on the row.
+        boolean splitBadge = revivable && !casting && badgeHovered;
         int badgeColor = switch (entry.state) {
             case PRESENT -> 0xFF2E7D32;
             case STORED -> 0xFF1565C0;
             case UNLOADED -> 0xFF6A1B9A;
             // Red-grey: visibly different from the three live states at a glance, without
             // competing with the health bar's red for attention.
-            case DEAD -> showRevive ? 0xFF2E7D32 : 0xFF8E2424;
+            case DEAD -> casting ? 0xFF7E57C2 : (splitBadge ? 0xFF2E7D32 : 0xFF8E2424);
         };
-        graphics.fill(badgeX, y + 6, badgeX + BADGE_W, y + 18, badgeColor);
-        graphics.drawCenteredString(this.font,
-                Component.translatable(showRevive
-                        ? "gui.touhou_maid_legion.revive"
-                        : entry.state.translationKey()),
-                badgeX + BADGE_W / 2, y + 8, 0xFFFFFFFF);
 
-        if (showRevive) {
-            // Say what it costs before the click, since reviving spends real materials.
+        if (splitBadge) {
+            int half = BADGE_W / 2;
+            graphics.fill(badgeX, y + 6, badgeX + half, y + 18, 0xFF2E7D32);
+            graphics.fill(badgeX + half + 1, y + 6, badgeX + BADGE_W, y + 18, 0xFF6A3FA0);
+            graphics.drawCenteredString(this.font,
+                    Component.translatable("gui.touhou_maid_legion.revive"),
+                    badgeX + half / 2, y + 8, 0xFFFFFFFF);
+            graphics.drawCenteredString(this.font,
+                    Component.translatable("gui.touhou_maid_legion.revive.shrine"),
+                    badgeX + half + 1 + half / 2, y + 8, 0xFFFFFFFF);
+        } else {
+            graphics.fill(badgeX, y + 6, badgeX + BADGE_W, y + 18, badgeColor);
+            graphics.drawCenteredString(this.font, badgeLabel(entry), badgeX + BADGE_W / 2, y + 8,
+                    0xFFFFFFFF);
+        }
+
+        if (splitBadge) {
+            // Both prices, before the click: one spends real materials, the other three shrines
+            // and a wait.
             List<Component> tip = new ArrayList<>();
             tip.add(Component.translatable("gui.touhou_maid_legion.revive.tooltip.title")
                     .withStyle(ChatFormatting.BOLD));
             tip.add(Component.translatable("gui.touhou_maid_legion.revive.tooltip.materials"));
             tip.add(Component.translatable("gui.touhou_maid_legion.revive.tooltip.click"));
+            tip.add(Component.empty());
+            tip.add(Component.translatable("gui.touhou_maid_legion.revive.shrine.tooltip",
+                    com.dsh.maidmanager.logic.MaidManagerService.SHRINE_REVIVE_COST));
             this.pendingTooltip = tip;
             this.pendingTooltipX = mouseX;
             this.pendingTooltipY = mouseY;
@@ -612,6 +664,9 @@ public class MaidManagerScreen extends Screen {
                 swX + SWITCH_W / 2, headerY, 0xFFB0B0B0);
         graphics.drawCenteredString(this.font, Component.translatable("gui.touhou_maid_legion.col.state"),
                 badgeX + BADGE_W / 2, headerY, 0xFFB0B0B0);
+        graphics.drawCenteredString(this.font,
+                Component.translatable("gui.touhou_maid_legion.col.actions"),
+                (chipX(1) + chipRight()) / 2, headerY, 0xFFB0B0B0);
 
         // A hairline under the headers to separate them from the first row.
         graphics.fill(listLeft, headerY + 10, listRight, headerY + 11, 0x40FFFFFF);
@@ -624,16 +679,43 @@ public class MaidManagerScreen extends Screen {
      * room the current window gives it. The limit is the left edge of the health readout for
      * loaded maids, and the left edge of the force-load switch otherwise.
      */
+    /**
+     * Right edge of the first per-row action chip.
+     *
+     * <p>Anchored to the same reserved health width the name uses, so the two chips line up down
+     * the whole list. Aligning them per row instead would make the column jitter as states differ.
+     */
+    private int chipRight() {
+        int barX = listRight - BADGE_W - BAR_W - HP_GAP;
+        return barX - this.font.width("999/999") - 3 - 4;
+    }
+
+    /** Left edge of a chip, counting from the right: 0 is the rightmost. */
+    private int chipX(int indexFromRight) {
+        return chipRight() - (indexFromRight + 1) * CHIP_W - indexFromRight * CHIP_GAP;
+    }
+
+    /** Left edge of the leftmost chip, which is where the name must stop. */
+    private int chipsLeft() {
+        return chipX(1);
+    }
+
     private int nameRightLimit(MaidEntry entry) {
         int barX = listRight - BADGE_W - BAR_W - HP_GAP;
+        int limit;
         if (entry.state == MaidState.PRESENT) {
             // Reserve the widest plausible readout so the limit does not jitter per row.
-            return barX - this.font.width("999/999") - 3 - 4;
+            limit = barX - this.font.width("999/999") - 3 - 4;
+        } else {
+            // Maids without a health row can run right up to the switch, or the badge when the
+            // switch is not shown at all.
+            int switchLeft = listRight - BADGE_W - BADGE_PAD - SWITCH_W - 4;
+            limit = entry.state == MaidState.STORED
+                    ? listRight - BADGE_W - BADGE_PAD - 4 : switchLeft - 4;
         }
-        // Maids without a health row can run right up to the switch, or the badge when the
-        // switch is not shown at all.
-        int switchLeft = listRight - BADGE_W - BADGE_PAD - SWITCH_W - 4;
-        return entry.state == MaidState.STORED ? listRight - BADGE_W - BADGE_PAD - 4 : switchLeft - 4;
+        // Never past the action chips: they are a fixed column, so the name stops before them
+        // whatever the state would otherwise have allowed.
+        return Math.min(limit, chipsLeft() - 6);
     }
 
     private Component subtitle(MaidEntry entry) {
@@ -735,7 +817,21 @@ public class MaidManagerScreen extends Screen {
         // Revive badge hitbox - the same rectangle the renderer paints, so hovering it and
         // clicking it agree. Checked before the generic tick toggle because for a dead maid
         // the badge is the action; the tick box means nothing for her.
+        // Action chips act on this row alone, so no selection is involved.
+        if (mobileChipsHit(row, mouseX)) {
+            return true;
+        }
+        if (row.entry.castingRevive()) {
+            // Mid-cast: the badge is showing progress, so it is not a button right now.
+            return true;
+        }
         if (row.entry.revivable() && mouseX >= badgeX && mouseX <= badgeX + BADGE_W) {
+            if (mouseX >= badgeX + BADGE_W / 2) {
+                // Right half: the shrine route, which costs shrines and makes her wait.
+                NetworkHandler.CHANNEL.sendToServer(
+                        new com.dsh.maidmanager.network.C2SReviveMaidPacket(row.entry.id, true));
+                return true;
+            }
             reviveOne(row.entry);
             return true;
         }

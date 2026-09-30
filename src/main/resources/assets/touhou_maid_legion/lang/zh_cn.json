@@ -220,5 +220,6 @@
   "gui.touhou_maid_legion.bank.shrines": "神龛 %s / %s",
   "gui.touhou_maid_legion.bank.lamp_none": "未绑定亭灯：潜行 + 手持御币右键亭灯",
   "gui.touhou_maid_legion.upgrade.enabled": "已开启",
-  "gui.touhou_maid_legion.upgrade.disabled": "已关闭"
+  "gui.touhou_maid_legion.upgrade.disabled": "已关闭",
+  "gui.touhou_maid_legion.upgrade.pick_one": "请先在终端里勾选一只女仆，再点她那一行的「强化」。"
 }
