@@ -87,8 +87,6 @@ public class MaidUpgradeScreen extends Screen {
 
     private final Map<MaidUpgrade, Button> singleButtons = new EnumMap<>(MaidUpgrade.class);
     private final Map<GlobalUpgrade, Button> globalButtons = new EnumMap<>(GlobalUpgrade.class);
-    private Button tabSingle;
-    private Button tabGlobal;
 
     public MaidUpgradeScreen(Screen parent, MaidEntry maid, List<MaidEntry> entries) {
         this(parent, maid, entries, Tab.SINGLE);
@@ -139,19 +137,13 @@ public class MaidUpgradeScreen extends Screen {
         // Footer holds the two tabs and Close.
         this.listBottom = this.height - 40;
 
-        int tabsY = this.height - 30;
-        int tabW = 90;
-        this.tabSingle = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.touhou_maid_legion.upgrade.tab_single"),
-                        b -> switchTab(Tab.SINGLE))
-                .bounds(this.width / 2 - tabW - 3, tabsY, tabW, 20).build());
-        this.tabGlobal = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.touhou_maid_legion.upgrade.tab_global"),
-                        b -> switchTab(Tab.GLOBAL))
-                .bounds(this.width / 2 + 3, tabsY, tabW, 20).build());
+        // No tab buttons: which tab you get is decided by how the screen was opened - the
+        // Upgrade chip on a maid's row shows that maid, the terminal's legion button shows the
+        // abilities. Both entry points exist on the screen you came from, so a pair of buttons
+        // here was a second way to do what the previous screen already offered.
         addRenderableWidget(Button.builder(Component.translatable("gui.touhou_maid_legion.close"),
                         b -> Minecraft.getInstance().setScreen(parent))
-                .bounds(this.width - 84, tabsY, 74, 20).build());
+                .bounds(this.width - 84, this.height - 30, 74, 20).build());
 
         if (tab == Tab.SINGLE) {
             initSingleTab();
@@ -162,23 +154,10 @@ public class MaidUpgradeScreen extends Screen {
     }
 
     private void rebuildWidgetsDone() {
-        // Kept as a seam so tab state can be reflected on the buttons after they exist.
-        if (tabSingle != null) {
-            tabSingle.active = tab != Tab.SINGLE;
-        }
-        if (tabGlobal != null) {
-            tabGlobal.active = tab != Tab.GLOBAL;
-        }
+        // Nothing to do now that the tab buttons are gone; kept as the single place that runs
+        // after the tab's widgets exist, so a future per-tab fix has somewhere obvious to go.
     }
 
-    private void switchTab(Tab next) {
-        if (this.tab == next) {
-            return;
-        }
-        this.tab = next;
-        this.scroll = 0;
-        this.rebuildWidgets();
-    }
 
     // ------------------------------------------------------------------
     // Per-maid tab
