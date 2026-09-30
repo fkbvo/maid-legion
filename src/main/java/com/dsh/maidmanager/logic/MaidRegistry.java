@@ -21,7 +21,11 @@ import java.util.UUID;
  * stored NBT.
  */
 public final class MaidRegistry extends SavedData {
-    private static final String DATA_ID = "maid_legion_registry";
+    private static final String DATA_ID = "touhou_maid_legion_registry";
+    /**
+     * The id this data was written under before the mod was renamed. Kept so an existing world can be migrated instead of silently starting empty.
+     */
+    private static final String LEGACY_DATA_ID = "maid_legion_registry";
     private static final String FORCE_LOAD = "ForceLoad";
     private static final String FAVOURITES = "Favourites";
     private static final String ENROLLED = "Enrolled";
@@ -40,10 +44,53 @@ public final class MaidRegistry extends SavedData {
     private final Set<UUID> acknowledged = new HashSet<>();
 
     public static MaidRegistry get(MinecraftServer server) {
-        // See MaidStorage.get: 1.21 replaced the (loader, supplier, id) form of computeIfAbsent
-        // with one that takes a SavedData.Factory.
-        return server.overworld().getDataStorage().computeIfAbsent(
-                new SavedData.Factory<>(MaidRegistry::new, MaidRegistry::load), DATA_ID);
+        net.minecraft.world.level.storage.DimensionDataStorage data =
+                server.overworld().getDataStorage();
+        SavedData.Factory<MaidRegistry> factory =
+                new SavedData.Factory<>(MaidRegistry::new, MaidRegistry::load);
+        MaidRegistry live = data.computeIfAbsent(factory, DATA_ID);
+        MaidRegistry legacy = data.get(factory, LEGACY_DATA_ID);
+        if (adoptIfEmpty(live, legacy)) {
+            live.setDirty();
+        }
+        return live;
+    }
+
+    /**
+     * Copies pre-rename data in, but only into an empty registry.
+     *
+     * <p>Separated from {@link #get(MinecraftServer)} so the decision can be unit tested without
+     * a server: the live registry can only hold something if the renamed build already wrote it,
+     * and then that data must win, so refusing to adopt is always the safe direction.
+     *
+     * @return whether anything was adopted
+     */
+    public static boolean adoptIfEmpty(MaidRegistry live, MaidRegistry legacy) {
+        if (legacy == null || !live.isEmpty()) {
+            return false;
+        }
+        return live.adoptFrom(legacy);
+    }
+
+    public boolean isEmpty() {
+        return forceLoad.isEmpty() && favourites.isEmpty() && enrolled.isEmpty()
+                && acknowledged.isEmpty();
+    }
+
+    /**
+     * One-time copy of everything a pre-rename registry held.
+     *
+     * <p>Copied into fresh sets so the two instances never share mutable state.
+     */
+    public boolean adoptFrom(MaidRegistry legacy) {
+        if (legacy.isEmpty()) {
+            return false;
+        }
+        legacy.forceLoad.forEach((owner, ids) -> forceLoad.put(owner, new HashSet<>(ids)));
+        legacy.favourites.forEach((owner, ids) -> favourites.put(owner, new HashSet<>(ids)));
+        legacy.enrolled.forEach((owner, ids) -> enrolled.put(owner, new HashSet<>(ids)));
+        acknowledged.addAll(legacy.acknowledged);
+        return true;
     }
 
     public static MaidRegistry load(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {

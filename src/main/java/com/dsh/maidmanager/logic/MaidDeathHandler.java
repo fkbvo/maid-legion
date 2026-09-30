@@ -147,7 +147,7 @@ public final class MaidDeathHandler {
                 if (owner instanceof ServerPlayer serverPlayer) {
                     serverPlayer.displayClientMessage(
                             net.minecraft.network.chat.Component.translatable(
-                                    "message.maid_legion.died_captured", maid.getDisplayName()),
+                                    "message.touhou_maid_legion.died_captured", maid.getDisplayName()),
                             false);
                 }
             }

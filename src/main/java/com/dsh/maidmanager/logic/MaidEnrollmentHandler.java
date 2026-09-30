@@ -60,7 +60,7 @@ public final class MaidEnrollmentHandler {
             // Not our maid: say so rather than silently doing nothing, otherwise the gesture
             // looks broken.
             player.displayClientMessage(
-                    Component.translatable("message.maid_legion.not_owner"), true);
+                    Component.translatable("message.touhou_maid_legion.not_owner"), true);
             event.setCanceled(true);
             return;
         }
@@ -70,8 +70,8 @@ public final class MaidEnrollmentHandler {
         registry.setEnrolled(player.getUUID(), maid.getUUID(), nowEnrolled);
 
         player.displayClientMessage(Component.translatable(nowEnrolled
-                ? "message.maid_legion.enrolled"
-                : "message.maid_legion.removed", maid.getName()), true);
+                ? "message.touhou_maid_legion.enrolled"
+                : "message.touhou_maid_legion.removed", maid.getName()), true);
 
         // Reflect it immediately if the panel happens to be open.
         if (player instanceof ServerPlayer serverPlayer) {
@@ -139,8 +139,8 @@ public final class MaidEnrollmentHandler {
         boolean nowEnrolled = !registry.isEnrolled(player.getUUID(), maid.getUUID());
         registry.setEnrolled(player.getUUID(), maid.getUUID(), nowEnrolled);
         player.displayClientMessage(Component.translatable(nowEnrolled
-                ? "message.maid_legion.enrolled"
-                : "message.maid_legion.removed", maid.getName()), true);
+                ? "message.touhou_maid_legion.enrolled"
+                : "message.touhou_maid_legion.removed", maid.getName()), true);
 
         if (player instanceof ServerPlayer serverPlayer) {
             com.dsh.maidmanager.network.MaidActionHandler.refresh(serverPlayer);

@@ -289,7 +289,7 @@ public final class MaidManagerService {
             refundRevive(player);
             return ReviveResult.FAILED;
         }
-        player.displayClientMessage(Component.translatable("message.maid_legion.revive_done",
+        player.displayClientMessage(Component.translatable("message.touhou_maid_legion.revive_done",
                 dead.name()), true);
         return ReviveResult.STARTED;
     }
@@ -748,16 +748,16 @@ public final class MaidManagerService {
                 iterator.remove();
                 if (summonLoaded(owner, maid)) {
                     owner.displayClientMessage(
-                            Component.translatable("message.maid_legion.force_load_done"), true);
+                            Component.translatable("message.touhou_maid_legion.force_load_done"), true);
                 } else {
-                    owner.sendSystemMessage(Component.translatable("message.maid_legion.cannot_reach"));
+                    owner.sendSystemMessage(Component.translatable("message.touhou_maid_legion.cannot_reach"));
                 }
                 com.dsh.maidmanager.network.MaidActionHandler.refresh(owner);
                 continue;
             }
             if (now > pending.deadline()) {
                 iterator.remove();
-                owner.sendSystemMessage(Component.translatable("message.maid_legion.force_load_timeout"));
+                owner.sendSystemMessage(Component.translatable("message.touhou_maid_legion.force_load_timeout"));
                 // Release the ticket we took, otherwise it would leak.
                 releaseForceLoad(server, pending.maidId());
             }

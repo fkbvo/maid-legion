@@ -23,6 +23,6 @@ public enum MaidState {
     DEAD;
 
     public String translationKey() {
-        return "gui.maid_legion.state." + name().toLowerCase(java.util.Locale.ROOT);
+        return "gui.touhou_maid_legion.state." + name().toLowerCase(java.util.Locale.ROOT);
     }
 }

@@ -52,15 +52,15 @@ public record C2SReviveMaidPacket(UUID maidId) implements CustomPacketPayload {
             // Report refusals explicitly; a silent no-op looks like a broken button.
             switch (result) {
                 case NEED_MATERIALS -> sender.displayClientMessage(
-                        Component.translatable("message.maid_legion.need_materials"), true);
+                        Component.translatable("message.touhou_maid_legion.need_materials"), true);
                 case NOT_DEAD -> sender.displayClientMessage(
-                        Component.translatable("message.maid_legion.not_dead"), true);
+                        Component.translatable("message.touhou_maid_legion.not_dead"), true);
                 case NOT_OWNER -> sender.displayClientMessage(
-                        Component.translatable("message.maid_legion.not_owner"), true);
+                        Component.translatable("message.touhou_maid_legion.not_owner"), true);
                 case NOT_ENROLLED -> sender.displayClientMessage(
-                        Component.translatable("message.maid_legion.not_enrolled"), true);
+                        Component.translatable("message.touhou_maid_legion.not_enrolled"), true);
                 case FAILED -> sender.sendSystemMessage(
-                        Component.translatable("message.maid_legion.revive_failed"));
+                        Component.translatable("message.touhou_maid_legion.revive_failed"));
                 case STARTED -> {
                     // beginRevive already told the player she is back.
                 }

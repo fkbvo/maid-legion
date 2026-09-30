@@ -450,7 +450,7 @@ maid.getFavorabilityManager().nextLevelPoint();
 // ---- 属性强化（用 Modifier，别用 baseValue！）----
 AttributeInstance attack = maid.getAttribute(Attributes.ATTACK_DAMAGE);
 attack.addTransientModifier(new AttributeModifier(
-    UUID, "maid_legion_upgrade", amount, AttributeModifier.Operation.ADDITION));
+    UUID, "touhou_maid_legion_upgrade", amount, AttributeModifier.Operation.ADDITION));
 
 // ---- 死亡拦截 ----
 @SubscribeEvent

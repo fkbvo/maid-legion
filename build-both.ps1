@@ -68,7 +68,7 @@ try {
             $fails += [int]$d.testsuite.failures + [int]$d.testsuite.errors
         }
 
-        $jar = Get-ChildItem "build\libs\maid_legion-*.jar" -ErrorAction SilentlyContinue | Select-Object -First 1
+        $jar = Get-ChildItem "build\libs\touhou_maid_legion-*.jar" -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($ok -and $jar) {
             Copy-Item $jar.FullName $DistDir -Force
             Write-Host "  [成功] $($jar.Name)  测试 $tests/$tests 通过" -ForegroundColor Green

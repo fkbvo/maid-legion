@@ -28,7 +28,13 @@ import java.util.UUID;
  * what keeps a value from being applied twice.
  */
 public final class MaidProgressStorage extends SavedData {
-    private static final String DATA_ID = "maid_legion_progress";
+    private static final String DATA_ID = "touhou_maid_legion_progress";
+    /**
+     * The id this data was written under before the mod was renamed. Kept so an existing world
+     * can be migrated; without it every bought upgrade level and the whole P-point bank would be
+     * lost.
+     */
+    private static final String LEGACY_DATA_ID = "maid_legion_progress";
 
     private static final String MAID_LEVELS = "MaidLevels";
     private static final String GLOBAL_LEVELS = "GlobalLevels";
@@ -45,9 +51,52 @@ public final class MaidProgressStorage extends SavedData {
     private final Set<UUID> autoDepositOff = new HashSet<>();
 
     public static MaidProgressStorage get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(
-                new SavedData.Factory<>(MaidProgressStorage::new, MaidProgressStorage::load),
-                DATA_ID);
+        net.minecraft.world.level.storage.DimensionDataStorage data =
+                server.overworld().getDataStorage();
+        SavedData.Factory<MaidProgressStorage> factory =
+                new SavedData.Factory<>(MaidProgressStorage::new, MaidProgressStorage::load);
+        MaidProgressStorage live = data.computeIfAbsent(factory, DATA_ID);
+        MaidProgressStorage legacy = data.get(factory, LEGACY_DATA_ID);
+        if (adoptIfEmpty(live, legacy)) {
+            live.setDirty();
+        }
+        return live;
+    }
+
+    /**
+     * Copies pre-rename data in, but only into an empty store.
+     *
+     * <p>Separated from {@link #get(MinecraftServer)} so the decision can be unit tested without
+     * a server.
+     *
+     * <p>"Empty" means <em>nothing at all</em> was written, down to a lone auto-deposit opt-out.
+     * Counting the opt-out as content deliberately errs toward refusing to adopt: the only way
+     * the live store can hold anything is if the renamed build already wrote it, and then that
+     * data must win. At first load the store was created empty in this same call, so the strict
+     * rule costs nothing in practice.
+     */
+    public static boolean adoptIfEmpty(MaidProgressStorage live, MaidProgressStorage legacy) {
+        if (legacy == null || !live.isEmpty()) {
+            return false;
+        }
+        return live.adoptFrom(legacy);
+    }
+
+    public boolean isEmpty() {
+        return maidLevels.isEmpty() && globalLevels.isEmpty() && bankedPower.isEmpty()
+                && autoDepositOff.isEmpty();
+    }
+
+    /** One-time copy of every level, balance and opt-out, into fresh collections. */
+    public boolean adoptFrom(MaidProgressStorage legacy) {
+        if (legacy.isEmpty()) {
+            return false;
+        }
+        legacy.maidLevels.forEach((id, levels) -> maidLevels.put(id, new HashMap<>(levels)));
+        legacy.globalLevels.forEach((id, levels) -> globalLevels.put(id, new HashMap<>(levels)));
+        legacy.bankedPower.forEach(bankedPower::put);
+        autoDepositOff.addAll(legacy.autoDepositOff);
+        return true;
     }
 
     public static MaidProgressStorage load(CompoundTag tag, HolderLookup.Provider registries) {

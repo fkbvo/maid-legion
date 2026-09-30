@@ -58,23 +58,23 @@ public record C2SPowerBankPacket(Action action) implements CustomPacketPayload {
                 case DEPOSIT -> {
                     float moved = MaidProgressionService.depositAll(sender);
                     sender.displayClientMessage(moved > 0.0F
-                            ? Component.translatable("message.maid_legion.bank_deposit",
+                            ? Component.translatable("message.touhou_maid_legion.bank_deposit",
                             String.format("%.2f", moved))
-                            : Component.translatable("message.maid_legion.bank_nothing"), true);
+                            : Component.translatable("message.touhou_maid_legion.bank_nothing"), true);
                 }
                 case WITHDRAW -> {
                     float taken = MaidProgressionService.withdrawAll(sender);
                     sender.displayClientMessage(taken > 0.0F
-                            ? Component.translatable("message.maid_legion.bank_withdraw",
+                            ? Component.translatable("message.touhou_maid_legion.bank_withdraw",
                             String.format("%.2f", taken))
-                            : Component.translatable("message.maid_legion.bank_wallet_full"), true);
+                            : Component.translatable("message.touhou_maid_legion.bank_wallet_full"), true);
                 }
                 case TOGGLE_AUTO -> {
                     boolean enabled = !MaidProgressionService.autoDepositEnabled(sender);
                     MaidProgressionService.setAutoDeposit(sender, enabled);
                     sender.displayClientMessage(Component.translatable(enabled
-                            ? "message.maid_legion.bank_auto_on"
-                            : "message.maid_legion.bank_auto_off"), true);
+                            ? "message.touhou_maid_legion.bank_auto_on"
+                            : "message.touhou_maid_legion.bank_auto_off"), true);
                 }
             }
             MaidActionHandler.refresh(sender);

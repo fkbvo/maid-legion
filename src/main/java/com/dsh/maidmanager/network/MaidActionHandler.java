@@ -76,12 +76,12 @@ public final class MaidActionHandler {
         // later tick; report the outcome either way.
         boolean forceLoad = MaidRegistry.get(player.getServer()).isForceLoad(player.getUUID(), maidId);
         if (!forceLoad || !MaidUtil.isTlmAvailable()) {
-            player.sendSystemMessage(Component.translatable("message.maid_legion.cannot_reach"));
+            player.sendSystemMessage(Component.translatable("message.touhou_maid_legion.cannot_reach"));
             return false;
         }
         boolean started = MaidManagerService.beginForceLoadSummon(player, maidId);
         if (!started) {
-            player.sendSystemMessage(Component.translatable("message.maid_legion.cannot_reach"));
+            player.sendSystemMessage(Component.translatable("message.touhou_maid_legion.cannot_reach"));
         }
         return started;
     }

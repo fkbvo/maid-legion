@@ -51,11 +51,11 @@ public record C2SOpenMaidGuiPacket(UUID maidId) implements CustomPacketPayload {
                     MaidProgressionService.openMaidGui(sender, msg.maidId());
             switch (result) {
                 case NOT_OWNER, NOT_ENROLLED -> sender.displayClientMessage(
-                        Component.translatable("message.maid_legion.not_enrolled"), true);
+                        Component.translatable("message.touhou_maid_legion.not_enrolled"), true);
                 case NOT_LOADED -> sender.displayClientMessage(
-                        Component.translatable("message.maid_legion.open_gui_not_loaded"), true);
+                        Component.translatable("message.touhou_maid_legion.open_gui_not_loaded"), true);
                 case WRONG_DIMENSION -> sender.displayClientMessage(
-                        Component.translatable("message.maid_legion.open_gui_wrong_dim"), true);
+                        Component.translatable("message.touhou_maid_legion.open_gui_wrong_dim"), true);
                 case OK -> {
                     // Nothing to say - the container opening is the feedback.
                 }
