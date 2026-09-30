@@ -154,7 +154,10 @@ public final class MaidManagerService {
                 // UNLOADED maids report 0: their NBT is inside TLM's world data, unreachable from
                 // here, and the upgrade service refuses to sell them anything for the same reason.
                 int experience = experienceById.getOrDefault(entry.id, 0);
-                result.add(entry.withProgression(experience, levelsArray(progress, entry.id)));
+                MaidProgressStorage.ActiveCast cast = progress.activeCast(entry.id);
+                result.add(entry.withProgression(experience, levelsArray(progress, entry.id),
+                        cast == null ? 0L : cast.endsAt(),
+                        cast == null ? 0 : cast.totalTicks()));
             }
         }
         return result;
@@ -315,6 +318,118 @@ public final class MaidManagerService {
      *       back below, so a mod that adds death loot for maids cannot spill it either.</li>
      * </ul>
      */
+    /** How many shrine items the cast route costs. */
+    public static final int SHRINE_REVIVE_COST = 3;
+
+    /**
+     * Starts the shrine revival route: three shrines up front, then a channelled cast.
+     *
+     * <p>Charging before the cast is deliberate - the player is committing to the wait - which is
+     * exactly why the cast is persisted rather than kept in memory. A restart mid-cast would
+     * otherwise swallow the shrines.
+     *
+     * <p>Unlike the material route this one does not place her immediately, so it must not be
+     * used as a cheaper way to skip the altar: it costs three shrine blocks instead.
+     */
+    public static ReviveResult beginShrineRevive(ServerPlayer player, UUID maidId) {
+        if (!ownsMaid(player, maidId)) {
+            return ReviveResult.NOT_OWNER;
+        }
+        if (!isEnrolled(player, maidId)) {
+            return ReviveResult.NOT_ENROLLED;
+        }
+        if (MaidDeathStorage.get(player.getServer()).get(player.getUUID(), maidId) == null) {
+            return ReviveResult.NOT_DEAD;
+        }
+        MaidProgressStorage progress = MaidProgressStorage.get(player.getServer());
+        if (progress.activeCast(maidId) != null) {
+            return ReviveResult.ALREADY_CASTING;
+        }
+        if (!MaidProgressionService.consumeShrines(player, SHRINE_REVIVE_COST)) {
+            return ReviveResult.NEED_SHRINES;
+        }
+
+        long now = player.getServer().overworld().getGameTime();
+        int ticks = ReviveCast.castTicksFor(currentHeat(progress, maidId));
+        progress.setActiveCast(maidId,
+                new MaidProgressStorage.ActiveCast(player.getUUID(), now + ticks, ticks));
+        player.displayClientMessage(Component.translatable(
+                "message.touhou_maid_legion.shrine_cast_started",
+                Math.round(ticks / 20.0F)), true);
+        return ReviveResult.STARTED_CASTING;
+    }
+
+    /** A maid's heat as of now, cooled, or 0 when she has no record. */
+    private static int currentHeat(MaidProgressStorage progress, UUID maidId) {
+        MaidProgressStorage.DeathHeat heat = progress.deathHeat(maidId);
+        if (heat == null) {
+            return 0;
+        }
+        return ReviveCast.decayHeat(heat.heat(), heat.at(), System.currentTimeMillis());
+    }
+
+    /** The cast in progress for a maid, or null. Used by the snapshot and the panel. */
+    public static MaidProgressStorage.ActiveCast activeCast(MinecraftServer server, UUID maidId) {
+        return MaidProgressStorage.get(server).activeCast(maidId);
+    }
+
+    /**
+     * Advances every shrine revival. Called each server tick.
+     *
+     * <p>A cast that is due but whose owner is offline is <em>left pending</em> and retried on a
+     * later tick rather than cancelled: the shrines are already spent, so dropping the cast would
+     * destroy them for nothing. It completes as soon as they are back.
+     */
+    public static void tickReviveCasts(MinecraftServer server) {
+        MaidProgressStorage progress = MaidProgressStorage.get(server);
+        java.util.Map<UUID, MaidProgressStorage.ActiveCast> casts = progress.activeCasts();
+        if (casts.isEmpty()) {
+            return;
+        }
+        long now = server.overworld().getGameTime();
+        for (java.util.Map.Entry<UUID, MaidProgressStorage.ActiveCast> entry : casts.entrySet()) {
+            UUID maidId = entry.getKey();
+            MaidProgressStorage.ActiveCast cast = entry.getValue();
+            if (now < cast.endsAt()) {
+                continue;
+            }
+            ServerPlayer owner = server.getPlayerList().getPlayer(cast.owner());
+            if (owner == null) {
+                // Offline: keep the cast so the shrines are not lost. Retried every tick.
+                continue;
+            }
+            MaidDeathStorage.DeadMaid record =
+                    MaidDeathStorage.get(server).get(owner.getUUID(), maidId);
+            if (record == null) {
+                // Her record is gone; nothing left to revive, so the payment is returned.
+                progress.clearActiveCast(maidId);
+                MaidProgressionService.refundShrines(owner, SHRINE_REVIVE_COST);
+                owner.displayClientMessage(Component.translatable(
+                        "message.touhou_maid_legion.shrine_cast_refunded"), true);
+                continue;
+            }
+            // Captured before finishRevive, which deletes the record.
+            String name = record.name();
+            try {
+                if (finishRevive(owner, maidId)) {
+                    progress.clearActiveCast(maidId);
+                    owner.displayClientMessage(Component.translatable(
+                            "message.touhou_maid_legion.revive_done", name), true);
+                } else {
+                    // Placement failed: hand the shrines back rather than eating them.
+                    progress.clearActiveCast(maidId);
+                    MaidProgressionService.refundShrines(owner, SHRINE_REVIVE_COST);
+                    owner.displayClientMessage(Component.translatable(
+                            "message.touhou_maid_legion.shrine_cast_failed"), true);
+                }
+            } catch (Throwable t) {
+                MaidManagerMod.LOGGER.error("Shrine revival failed for maid {}", maidId, t);
+                progress.clearActiveCast(maidId);
+                MaidProgressionService.refundShrines(owner, SHRINE_REVIVE_COST);
+            }
+        }
+    }
+
     private static boolean finishRevive(ServerPlayer player, UUID maidId) {
         MaidDeathStorage storage = MaidDeathStorage.get(player.getServer());
         MaidDeathStorage.DeadMaid dead = storage.get(player.getUUID(), maidId);
@@ -409,6 +524,12 @@ public final class MaidManagerService {
 
     /** Outcome of asking to revive, so the caller can pick the right message. */
     public enum ReviveResult {
+        /** The shrine route needs three shrines and the player does not have them. */
+        NEED_SHRINES,
+        /** A shrine revival is already channelling for this maid. */
+        ALREADY_CASTING,
+        /** The shrine route was started; see {@code activeCast} for how long it takes. */
+        STARTED_CASTING,
         STARTED,
         /** She is not this player's maid at all. */
         NOT_OWNER,

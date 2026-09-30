@@ -1,5 +1,6 @@
 package com.dsh.maidmanager.network;
 
+import com.dsh.maidmanager.logic.GlobalUpgrade;
 import com.dsh.maidmanager.logic.MaidProgressionService;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -17,12 +18,24 @@ import java.util.function.Supplier;
  * re-reads the definition from the id either way - the client cannot influence the price.
  */
 public class C2SUpgradePacket {
+    /** Buying a level, or flipping a toggleable ability's switch. */
+    public enum Mode {
+        BUY,
+        TOGGLE
+    }
+
     private final UUID maidId;
     private final String upgradeId;
+    private final Mode mode;
 
     public C2SUpgradePacket(UUID maidId, String upgradeId) {
+        this(maidId, upgradeId, Mode.BUY);
+    }
+
+    public C2SUpgradePacket(UUID maidId, String upgradeId, Mode mode) {
         this.maidId = maidId;
         this.upgradeId = upgradeId;
+        this.mode = mode;
     }
 
     public static void encode(C2SUpgradePacket msg, FriendlyByteBuf buf) {
@@ -31,11 +44,13 @@ public class C2SUpgradePacket {
             buf.writeUUID(msg.maidId);
         }
         buf.writeUtf(msg.upgradeId);
+        buf.writeEnum(msg.mode);
     }
 
     public static C2SUpgradePacket decode(FriendlyByteBuf buf) {
         UUID maidId = buf.readBoolean() ? buf.readUUID() : null;
-        return new C2SUpgradePacket(maidId, buf.readUtf());
+        String upgradeId = buf.readUtf();
+        return new C2SUpgradePacket(maidId, upgradeId, buf.readEnum(Mode.class));
     }
 
     public static void handle(C2SUpgradePacket msg, Supplier<NetworkEvent.Context> ctx) {
@@ -44,6 +59,17 @@ public class C2SUpgradePacket {
             context.enqueueWork(() -> {
                 ServerPlayer sender = context.getSender();
                 if (sender == null) {
+                    return;
+                }
+                if (msg.mode == Mode.TOGGLE) {
+                    GlobalUpgrade ability = GlobalUpgrade.byId(msg.upgradeId);
+                    if (ability != null) {
+                        boolean nowOn = MaidProgressionService.toggleAbility(sender, ability);
+                        sender.displayClientMessage(Component.translatable(nowOn
+                                ? "message.touhou_maid_legion.ability_on"
+                                : "message.touhou_maid_legion.ability_off"), true);
+                    }
+                    C2SMaidActionPacket.refresh(sender);
                     return;
                 }
                 MaidProgressionService.UpgradeResult result = msg.maidId == null

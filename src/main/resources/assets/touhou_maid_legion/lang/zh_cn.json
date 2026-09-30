@@ -191,5 +191,34 @@
   "gui.touhou_maid_legion.help.p6.title": "全军能力（花 P 点）",
   "gui.touhou_maid_legion.help.p6.1": "全军强化花的是【仓库里的 P 点】，不是 TLM 钱包。TLM 钱包上限被写死在 5.0，改不了，所以本模组建了一个上限更高的仓库。",
   "gui.touhou_maid_legion.help.p6.2": "「自动转入」默认开启：只要钱包超过 1.0，多出的部分每秒自动进仓库。这样你捡 P 点时钱包始终有空位，不会因为满了而溢出成普通经验。",
-  "gui.touhou_maid_legion.help.p6.3": "能力都是一次性买断，对【已招募】的全部女仆永久生效，已收起和阵亡的也算，加载时自动应用。"
+  "gui.touhou_maid_legion.help.p6.3": "能力都是一次性买断，对【已招募】的全部女仆永久生效，已收起和阵亡的也算，加载时自动应用。",
+
+  "message.touhou_maid_legion.fed_bottle": "喂了 %s 瓶经验之瓶，%s 点经验。",
+  "message.touhou_maid_legion.lamp_bound": "已绑定这座神社亭灯，P 点会自动转入仓库。",
+  "message.touhou_maid_legion.lamp_unbound": "已解除亭灯绑定。",
+  "message.touhou_maid_legion.lamp_drained": "从亭灯提取了 %s P 点。",
+  "message.touhou_maid_legion.lamp_nothing": "亭灯里没有可提取的 P 点（未绑定、区块未加载、或只剩留底）。",
+  "message.touhou_maid_legion.items_deposited": "存入了 %s 个 P 点物品。",
+  "message.touhou_maid_legion.items_nothing": "背包里没有 P 点物品，或仓库已满。",
+  "message.touhou_maid_legion.shrine_cast_started": "开始读条复活，需要 %s 秒。",
+  "message.touhou_maid_legion.shrine_cast_refunded": "读条已取消，神龛已退还。",
+  "message.touhou_maid_legion.shrine_cast_failed": "读条复活失败，神龛已退还。",
+  "message.touhou_maid_legion.need_shrines": "神龛不足：需要 %s 个。",
+  "message.touhou_maid_legion.already_casting": "她已经在读条复活了。",
+  "message.touhou_maid_legion.ability_on": "技能已开启。",
+  "message.touhou_maid_legion.ability_off": "技能已关闭。",
+
+  "gui.touhou_maid_legion.row.open_gui": "界面",
+  "gui.touhou_maid_legion.row.upgrade": "强化",
+  "gui.touhou_maid_legion.col.actions": "操作",
+  "gui.touhou_maid_legion.legion_upgrade": "全军强化",
+  "gui.touhou_maid_legion.cast.remaining": "读条 %s 秒",
+  "gui.touhou_maid_legion.revive.shrine": "神龛",
+  "gui.touhou_maid_legion.revive.shrine.tooltip": "消耗 %s 个神龛，不用材料，但要读条",
+  "gui.touhou_maid_legion.bank.drain_lamp": "从亭灯提取",
+  "gui.touhou_maid_legion.bank.deposit_items": "存入P点物品",
+  "gui.touhou_maid_legion.bank.shrines": "神龛 %s / %s",
+  "gui.touhou_maid_legion.bank.lamp_none": "未绑定亭灯：潜行 + 手持御币右键亭灯",
+  "gui.touhou_maid_legion.upgrade.enabled": "已开启",
+  "gui.touhou_maid_legion.upgrade.disabled": "已关闭"
 }

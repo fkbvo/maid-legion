@@ -58,6 +58,16 @@ public final class MaidEntry {
      * {@link MaidUpgrade#values()}, and the wire format is a plain var-int array.
      */
     public final int[] levels;
+    /**
+     * When an in-progress shrine revival finishes, as an overworld game tick, or 0 for none.
+     *
+     * <p>An absolute tick rather than a countdown so the client can render the bar from
+     * {@code level.getGameTime()} without drifting between snapshots - level time is shared across
+     * dimensions, so both sides read the same clock.
+     */
+    public final long reviveCastEndsAt;
+    /** Total length of the cast in ticks, so the bar knows its own scale. */
+    public final int reviveCastTotal;
 
     public MaidEntry(UUID id, Component name, MaidState state, String dimension, BlockPos pos,
                      float health, float maxHealth, boolean forceLoad, boolean acknowledged,
@@ -95,6 +105,15 @@ public final class MaidEntry {
                      float health, float maxHealth, boolean forceLoad, boolean acknowledged,
                      boolean sameDimension, long storedAt, boolean favourite,
                      int deathCount, boolean hadItems, int experience, int[] levels) {
+        this(id, name, state, dimension, pos, health, maxHealth, forceLoad, acknowledged,
+                sameDimension, storedAt, favourite, deathCount, hadItems, experience, levels, 0L, 0);
+    }
+
+    public MaidEntry(UUID id, Component name, MaidState state, String dimension, BlockPos pos,
+                     float health, float maxHealth, boolean forceLoad, boolean acknowledged,
+                     boolean sameDimension, long storedAt, boolean favourite,
+                     int deathCount, boolean hadItems, int experience, int[] levels,
+                     long reviveCastEndsAt, int reviveCastTotal) {
         this.id = id;
         this.name = name;
         this.state = state;
@@ -111,6 +130,30 @@ public final class MaidEntry {
         this.hadItems = hadItems;
         this.experience = Math.max(0, experience);
         this.levels = normalise(levels);
+        this.reviveCastEndsAt = Math.max(0L, reviveCastEndsAt);
+        this.reviveCastTotal = Math.max(0, reviveCastTotal);
+    }
+
+    /** Whether a shrine revival is channelling for her right now. */
+    public boolean castingRevive() {
+        return reviveCastEndsAt > 0L && reviveCastTotal > 0;
+    }
+
+    /**
+     * Ticks left on the cast as of {@code nowGameTime}, clamped to the total.
+     *
+     * <p>Clamped because a stale snapshot could otherwise report more remaining than the cast
+     * ever had, drawing a bar longer than its own track.
+     */
+    public int reviveCastRemaining(long nowGameTime) {
+        if (!castingRevive()) {
+            return 0;
+        }
+        long left = reviveCastEndsAt - nowGameTime;
+        if (left <= 0L) {
+            return 0;
+        }
+        return (int) Math.min(left, reviveCastTotal);
     }
 
     /**
@@ -151,9 +194,15 @@ public final class MaidEntry {
      * built.
      */
     public MaidEntry withProgression(int experience, int[] levels) {
+        return withProgression(experience, levels, 0L, 0);
+    }
+
+    /** A copy with progression and any in-progress shrine revival filled in. */
+    public MaidEntry withProgression(int experience, int[] levels, long reviveCastEndsAt,
+                                     int reviveCastTotal) {
         return new MaidEntry(id, name, state, dimension, pos, health, maxHealth, forceLoad,
                 acknowledged, sameDimension, storedAt, favourite, deathCount, hadItems,
-                experience, levels);
+                experience, levels, reviveCastEndsAt, reviveCastTotal);
     }
 
     /** A short, stable suffix that distinguishes two maids sharing a name, e.g. {@code 3f2a}. */
@@ -205,6 +254,8 @@ public final class MaidEntry {
         buf.writeBoolean(hadItems);
         buf.writeVarInt(experience);
         buf.writeVarIntArray(levels);
+        buf.writeLong(reviveCastEndsAt);
+        buf.writeVarInt(reviveCastTotal);
     }
 
     public static MaidEntry read(FriendlyByteBuf buf) {
@@ -224,7 +275,9 @@ public final class MaidEntry {
                 buf.readVarInt(),
                 buf.readBoolean(),
                 buf.readVarInt(),
-                buf.readVarIntArray());
+                buf.readVarIntArray(),
+                buf.readLong(),
+                buf.readVarInt());
     }
 
     @Nullable

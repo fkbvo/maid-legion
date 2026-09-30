@@ -142,6 +142,11 @@ public final class MaidDeathHandler {
                         : maid.getDisplayName().getString();
                 boolean withItems = pending != null && pending.withItems();
                 storage.recordDeath(owner.getUUID(), maid.getUUID(), data, name, withItems);
+                // Death heat drives the shrine revival's cast time, and must be bumped at the
+                // same exactly-once point as the death record: TLM runs this method twice per
+                // death, so counting it outside this guard would double the penalty.
+                MaidProgressStorage.get(owner.getServer())
+                        .recordDeathHeat(maid.getUUID(), System.currentTimeMillis());
                 MaidManagerMod.LOGGER.info("Captured maid {} for panel revive ({} death(s))",
                         maid.getUUID(), storage.deathCount(owner.getUUID(), maid.getUUID()));
                 if (owner instanceof ServerPlayer serverPlayer) {

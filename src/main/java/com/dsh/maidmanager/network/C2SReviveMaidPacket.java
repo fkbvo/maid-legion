@@ -22,17 +22,25 @@ import java.util.function.Supplier;
  */
 public class C2SReviveMaidPacket {
     private final UUID maidId;
+    /** True for the shrine route: three shrines up front, then a channelled cast. */
+    private final boolean viaShrine;
 
     public C2SReviveMaidPacket(UUID maidId) {
+        this(maidId, false);
+    }
+
+    public C2SReviveMaidPacket(UUID maidId, boolean viaShrine) {
         this.maidId = maidId;
+        this.viaShrine = viaShrine;
     }
 
     public static void encode(C2SReviveMaidPacket msg, FriendlyByteBuf buf) {
         buf.writeUUID(msg.maidId);
+        buf.writeBoolean(msg.viaShrine);
     }
 
     public static C2SReviveMaidPacket decode(FriendlyByteBuf buf) {
-        return new C2SReviveMaidPacket(buf.readUUID());
+        return new C2SReviveMaidPacket(buf.readUUID(), buf.readBoolean());
     }
 
     public static void handle(C2SReviveMaidPacket msg, Supplier<NetworkEvent.Context> ctx) {
@@ -43,10 +51,19 @@ public class C2SReviveMaidPacket {
                 if (sender == null) {
                     return;
                 }
-                MaidManagerService.ReviveResult result =
-                        MaidManagerService.beginRevive(sender, msg.maidId);
+                MaidManagerService.ReviveResult result = msg.viaShrine
+                        ? MaidManagerService.beginShrineRevive(sender, msg.maidId)
+                        : MaidManagerService.beginRevive(sender, msg.maidId);
                 // Report refusals explicitly; a silent no-op looks like a broken button.
                 switch (result) {
+                    case NEED_SHRINES -> sender.displayClientMessage(
+                            Component.translatable("message.touhou_maid_legion.need_shrines",
+                                    MaidManagerService.SHRINE_REVIVE_COST), true);
+                    case ALREADY_CASTING -> sender.displayClientMessage(
+                            Component.translatable("message.touhou_maid_legion.already_casting"), true);
+                    case STARTED_CASTING -> {
+                        // beginShrineRevive already reported the cast length.
+                    }
                     case NEED_MATERIALS -> sender.displayClientMessage(
                             Component.translatable("message.touhou_maid_legion.need_materials"), true);
                     case NOT_DEAD -> sender.displayClientMessage(

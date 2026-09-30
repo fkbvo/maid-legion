@@ -72,6 +72,9 @@ public final class MaidManagerMod {
             return;
         }
         MaidManagerService.tickPendingSummons(server);
+        // Casts are checked every tick, not once a second: a cast that finished must land
+        // promptly, and the loop returns immediately when nothing is channelling.
+        MaidManagerService.tickReviveCasts(server);
         // Re-assert held chunks about once a second; cheap, and covers maids that moved.
         if (server.getTickCount() % 20 == 0) {
             MaidManagerService.tickForceLoadedMaids(server);
@@ -79,6 +82,10 @@ public final class MaidManagerMod {
             // P-point, so sweeping the wallet every second is the only way to keep pickup room
             // free. Without it, points overflow into vanilla experience at TLM's fixed rate.
             com.dsh.maidmanager.logic.MaidProgressionService.tickAutoDeposit(server);
+            // The bound shrine lamp is the efficient route: it absorbs nearby P-points itself and
+            // holds far more than the wallet, so sweeping it once a second is what actually lets a
+            // player accumulate points instead of watching them overflow into vanilla experience.
+            com.dsh.maidmanager.logic.MaidProgressionService.tickLampDrain(server);
         }
     }
 }

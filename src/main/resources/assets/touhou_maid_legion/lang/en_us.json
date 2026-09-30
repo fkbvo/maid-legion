@@ -191,5 +191,34 @@
   "gui.touhou_maid_legion.help.p6.title": "Legion abilities (paid with P-points)",
   "gui.touhou_maid_legion.help.p6.1": "Legion abilities are paid from the bank, not TLM's wallet. TLM hard-codes its wallet cap at 5.0, so this mod adds a bank with a much higher ceiling.",
   "gui.touhou_maid_legion.help.p6.2": "Auto-deposit is on by default: whenever the wallet passes 1.0, the excess moves into the bank every second. That keeps pickup room free, so points bank instead of overflowing into vanilla experience.",
-  "gui.touhou_maid_legion.help.p6.3": "Abilities are one-off purchases and apply permanently to every enrolled maid, including stored and fallen ones, as soon as they load."
+  "gui.touhou_maid_legion.help.p6.3": "Abilities are one-off purchases and apply permanently to every enrolled maid, including stored and fallen ones, as soon as they load.",
+
+  "message.touhou_maid_legion.fed_bottle": "Fed %s bottle(s): %s experience.",
+  "message.touhou_maid_legion.lamp_bound": "Bound to this shrine lamp; points will drain into the bank.",
+  "message.touhou_maid_legion.lamp_unbound": "Lamp binding cleared.",
+  "message.touhou_maid_legion.lamp_drained": "Took %s P from the lamp.",
+  "message.touhou_maid_legion.lamp_nothing": "Nothing to take (no bound lamp, chunk unloaded, or only the reserve left).",
+  "message.touhou_maid_legion.items_deposited": "Banked %s P-point item(s).",
+  "message.touhou_maid_legion.items_nothing": "No P-point items in your inventory, or the bank is full.",
+  "message.touhou_maid_legion.shrine_cast_started": "Channelling the revival: %s seconds.",
+  "message.touhou_maid_legion.shrine_cast_refunded": "Cast cancelled; your shrines were returned.",
+  "message.touhou_maid_legion.shrine_cast_failed": "The channelled revival failed; your shrines were returned.",
+  "message.touhou_maid_legion.need_shrines": "Not enough shrines: %s needed.",
+  "message.touhou_maid_legion.already_casting": "Her revival is already channelling.",
+  "message.touhou_maid_legion.ability_on": "Ability switched on.",
+  "message.touhou_maid_legion.ability_off": "Ability switched off.",
+
+  "gui.touhou_maid_legion.row.open_gui": "GUI",
+  "gui.touhou_maid_legion.row.upgrade": "Upgrade",
+  "gui.touhou_maid_legion.col.actions": "Actions",
+  "gui.touhou_maid_legion.legion_upgrade": "Legion upgrades",
+  "gui.touhou_maid_legion.cast.remaining": "Casting %ss",
+  "gui.touhou_maid_legion.revive.shrine": "Shrine",
+  "gui.touhou_maid_legion.revive.shrine.tooltip": "Costs %s shrines, no materials, but channelled",
+  "gui.touhou_maid_legion.bank.drain_lamp": "Drain lamp",
+  "gui.touhou_maid_legion.bank.deposit_items": "Bank P items",
+  "gui.touhou_maid_legion.bank.shrines": "Shrines %s / %s",
+  "gui.touhou_maid_legion.bank.lamp_none": "No lamp bound: sneak + right-click one with a gohei",
+  "gui.touhou_maid_legion.upgrade.enabled": "On",
+  "gui.touhou_maid_legion.upgrade.disabled": "Off"
 }
