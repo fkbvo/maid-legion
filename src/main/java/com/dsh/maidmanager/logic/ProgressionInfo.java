@@ -17,7 +17,7 @@ import net.minecraft.network.FriendlyByteBuf;
  * @param shrineCount shrines in the player's inventory, so the panel can show affordability
  */
 public record ProgressionInfo(float wallet, float bank, float bankCap, boolean autoDeposit,
-                              int[] globalLevels, int shrineCount) {
+                              int[] globalLevels, int shrineCount, boolean lampBound) {
 
     /**
      * Ability states, packed into {@code globalLevels}.
@@ -32,7 +32,7 @@ public record ProgressionInfo(float wallet, float bank, float bankCap, boolean a
 
     public static ProgressionInfo empty() {
         return new ProgressionInfo(0.0F, 0.0F, 0.0F, true,
-                new int[GlobalUpgrade.values().length], 0);
+                new int[GlobalUpgrade.values().length], 0, false);
     }
 
     private int state(GlobalUpgrade ability) {
@@ -62,6 +62,7 @@ public record ProgressionInfo(float wallet, float bank, float bankCap, boolean a
         buf.writeBoolean(autoDeposit);
         buf.writeVarIntArray(globalLevels);
         buf.writeVarInt(shrineCount);
+        buf.writeBoolean(lampBound);
     }
 
     public static ProgressionInfo read(FriendlyByteBuf buf) {
@@ -73,6 +74,7 @@ public record ProgressionInfo(float wallet, float bank, float bankCap, boolean a
         int[] normalised = new int[GlobalUpgrade.values().length];
         System.arraycopy(levels, 0, normalised, 0, Math.min(levels.length, normalised.length));
         int shrines = Math.max(0, buf.readVarInt());
-        return new ProgressionInfo(wallet, bank, bankCap, auto, normalised, shrines);
+        boolean lamp = buf.readBoolean();
+        return new ProgressionInfo(wallet, bank, bankCap, auto, normalised, shrines, lamp);
     }
 }

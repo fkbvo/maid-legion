@@ -240,7 +240,6 @@ public class MaidUpgradeScreen extends Screen {
             globalButtons.put(ability, button);
             y += GLOBAL_ROW_H;
         }
-        int tabsY = this.height - 30;
         addRenderableWidget(Button.builder(
                         Component.translatable("gui.touhou_maid_legion.bank.deposit"),
                         b -> sendBank(C2SPowerBankPacket.Action.DEPOSIT))
@@ -253,6 +252,16 @@ public class MaidUpgradeScreen extends Screen {
                         Component.translatable("gui.touhou_maid_legion.bank.auto"),
                         b -> sendBank(C2SPowerBankPacket.Action.TOGGLE_AUTO))
                 .bounds(contentLeft + contentWidth - 320, GLOBAL_FUNDS_TOP + 28, 206, 18).build());
+        // The two routes that bypass TLM's 5.0 wallet. They belong with the bank rather than in a
+        // menu of their own, because both of them end up as banked points.
+        addRenderableWidget(Button.builder(
+                        Component.translatable("gui.touhou_maid_legion.bank.drain_lamp"),
+                        b -> sendBank(C2SPowerBankPacket.Action.DRAIN_LAMP))
+                .bounds(contentLeft + contentWidth - 320, GLOBAL_FUNDS_TOP + 50, 152, 18).build());
+        addRenderableWidget(Button.builder(
+                        Component.translatable("gui.touhou_maid_legion.bank.deposit_items"),
+                        b -> sendBank(C2SPowerBankPacket.Action.DEPOSIT_ITEMS))
+                .bounds(contentLeft + contentWidth - 162, GLOBAL_FUNDS_TOP + 50, 152, 18).build());
     }
 
     private void sendBank(C2SPowerBankPacket.Action action) {
@@ -455,6 +464,21 @@ public class MaidUpgradeScreen extends Screen {
         graphics.drawString(this.font,
                 String.format("%.1f / %.1f P", info.bank(), info.bankCap()),
                 contentLeft + 150, fundsTop + 20, COLOUR_GREEN);
+        // Both of these are spent from the bank, so they are shown against it rather than in the
+        // ability rows: whether a lamp is bound decides whether the drain button can do anything,
+        // and the shrine count is the price of the shrine revival unlock.
+        graphics.drawString(this.font,
+                Component.translatable(info.lampBound()
+                        ? "gui.touhou_maid_legion.bank.lamp_yes"
+                        : "gui.touhou_maid_legion.bank.lamp_none").getString(),
+                contentLeft + 150, fundsTop + 54, info.lampBound() ? COLOUR_GREEN : COLOUR_DIM);
+        graphics.drawString(this.font,
+                Component.translatable("gui.touhou_maid_legion.bank.shrines",
+                        String.valueOf(info.shrineCount()),
+                        String.valueOf(com.dsh.maidmanager.logic.GlobalUpgrade.SHRINE_REVIVE.shrineCost())
+                ).getString(),
+                contentLeft + 150, fundsTop + 66, COLOUR_LABEL);
+
         int barX = contentLeft + 150;
         int barW = 200;
         graphics.fill(barX, fundsTop + 36, barX + barW, fundsTop + 42, COLOUR_BAR_BG);

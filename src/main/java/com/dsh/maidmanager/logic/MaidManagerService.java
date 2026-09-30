@@ -197,7 +197,8 @@ public final class MaidManagerService {
                 MaidProgressionService.bankCap(),
                 progress.autoDepositEnabled(player.getUUID()),
                 states,
-                MaidProgressionService.shrinesHeld(player));
+                MaidProgressionService.shrinesHeld(player),
+                MaidProgressionService.boundLamp(player) != null);
     }
 
     /** True when this maid is enrolled and therefore visible to the panel. */

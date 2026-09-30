@@ -229,5 +229,6 @@
   "gui.touhou_maid_legion.global.g_shrine.buy": "Unlock",
   "gui.touhou_maid_legion.global.unit_shrine": "shrines",
   "gui.touhou_maid_legion.global.status_off": "Owned - currently off",
-  "gui.touhou_maid_legion.global.status_on": "Owned - currently on"
+  "gui.touhou_maid_legion.global.status_on": "Owned - currently on",
+  "gui.touhou_maid_legion.bank.lamp_yes": "Lamp: bound"
 }
