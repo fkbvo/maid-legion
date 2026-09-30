@@ -1,12 +1,15 @@
 package com.dsh.maidmanager.network;
 
 import com.dsh.maidmanager.Config;
+import com.dsh.maidmanager.MaidManagerMod;
 import com.dsh.maidmanager.logic.MaidManagerService;
 import com.dsh.maidmanager.logic.MaidRegistry;
+import com.dsh.maidmanager.logic.MaidStorage;
 import com.dsh.maidmanager.util.MaidUtil;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -31,14 +34,27 @@ public final class MaidActionHandler {
             case SUMMON, STORE -> {
                 int size = msg.targets().size();
                 int budget = Math.min(size, Math.max(1, Config.COMMON.maxSummonPerAction.get()));
-                for (int i = 0; i < budget; i++) {
-                    boolean ok = msg.action() == C2SMaidActionPacket.Action.SUMMON
-                            ? summonOne(player, msg.targets().get(i))
-                            : MaidManagerService.store(player, msg.targets().get(i));
-                    if (ok) {
-                        success++;
-                    } else {
-                        failed++;
+                if (msg.action() == C2SMaidActionPacket.Action.SUMMON
+                        && MaidManagerService.isAirborne(player)
+                        && anyStored(player, msg.targets(), budget)) {
+                    // Checked once for the whole batch, and sent to chat rather than the action bar.
+                    // Two reasons: the problem is about the player and not about any one maid, so
+                    // repeating it per maid would spam; and the action bar is where the result
+                    // summary goes, which is sent just afterwards and would overwrite this
+                    // completely.
+                    player.displayClientMessage(
+                            Component.translatable("message.touhou_maid_legion.land_first"), false);
+                    failed += budget;
+                } else {
+                    for (int i = 0; i < budget; i++) {
+                        boolean ok = msg.action() == C2SMaidActionPacket.Action.SUMMON
+                                ? summonOne(player, msg.targets().get(i))
+                                : MaidManagerService.store(player, msg.targets().get(i));
+                        if (ok) {
+                            success++;
+                        } else {
+                            failed++;
+                        }
                     }
                 }
                 failed += Math.max(0, size - budget);
@@ -76,6 +92,11 @@ public final class MaidActionHandler {
         // later tick; report the outcome either way.
         boolean forceLoad = MaidRegistry.get(player.getServer()).isForceLoad(player.getUUID(), maidId);
         if (!forceLoad || !MaidUtil.isTlmAvailable()) {
+            // Logged so this path is distinguishable from a storage failure: the message shown to
+            // the player is the same either way, and they are very different bugs.
+            MaidManagerMod.LOGGER.warn(
+                    "Summon {} refused: not stored, not loaded, forceLoad={} tlmAvailable={}",
+                    maidId, forceLoad, MaidUtil.isTlmAvailable());
             player.sendSystemMessage(Component.translatable("message.touhou_maid_legion.cannot_reach"));
             return false;
         }
@@ -84,6 +105,21 @@ public final class MaidActionHandler {
             player.sendSystemMessage(Component.translatable("message.touhou_maid_legion.cannot_reach"));
         }
         return started;
+    }
+
+    /**
+     * Whether any maid in this action is one we hold as data, and so would have to be placed.
+     *
+     * <p>Only those need ground: a maid already in the world is teleported, not released.
+     */
+    private static boolean anyStored(ServerPlayer player, List<UUID> targets, int budget) {
+        MaidStorage storage = MaidStorage.get(player.getServer());
+        for (int i = 0; i < budget; i++) {
+            if (storage.contains(player.getUUID(), targets.get(i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static void refresh(ServerPlayer player) {

@@ -6,6 +6,7 @@ import com.github.tartaricacid.touhoulittlemaid.data.PowerAttachment;
 import com.github.tartaricacid.touhoulittlemaid.entity.favorability.Type;
 import com.github.tartaricacid.touhoulittlemaid.entity.passive.EntityMaid;
 import com.github.tartaricacid.touhoulittlemaid.init.InitDataAttachment;
+import com.github.tartaricacid.touhoulittlemaid.init.InitItems;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,6 +29,8 @@ public final class MaidProgressionService {
 
     /** Outcome of an attempted purchase, so the caller can pick the right message. */
     public enum UpgradeResult {
+        /** The unlock costs shrines and the player does not have them. */
+        NEED_SHRINES,
         OK,
         /** The feature is switched off server-side. */
         DISABLED,
@@ -177,6 +180,15 @@ public final class MaidProgressionService {
         if (storage.hasGlobal(player.getUUID(), ability)) {
             return UpgradeResult.MAX_LEVEL;
         }
+        if (ability.buyableWithShrines()) {
+            // Paid for in shrines, once, and free forever after. Deliberately not a per-revive
+            // cost: the price of this route is the wait, not a shrine each time.
+            if (!consumeShrines(player, ability.shrineCost())) {
+                return UpgradeResult.NEED_SHRINES;
+            }
+            storage.setGlobalLevel(player.getUUID(), ability, 1);
+            return UpgradeResult.OK;
+        }
         if (!storage.charge(player.getUUID(), ability.powerCost())) {
             return UpgradeResult.NOT_ENOUGH_POWER;
         }
@@ -205,10 +217,99 @@ public final class MaidProgressionService {
         }
     }
 
-    /** True when the player's legion has a given ability. */
+    /** True when the player has bought a given ability, whether or not it is switched on. */
     public static boolean hasAbility(ServerPlayer player, GlobalUpgrade ability) {
         return MaidProgressStorage.get(player.getServer()).hasGlobal(player.getUUID(), ability);
     }
+
+    /**
+     * True when an ability is bought <em>and</em> switched on.
+     *
+     * <p>Every behavioural check goes through this rather than {@link #hasAbility}: owning an
+     * ability the player has parked must do nothing at all.
+     */
+    public static boolean isAbilityActive(ServerPlayer player, GlobalUpgrade ability) {
+        MaidProgressStorage storage = MaidProgressStorage.get(player.getServer());
+        return storage.hasGlobal(player.getUUID(), ability)
+                && storage.isAbilityEnabled(player.getUUID(), ability);
+    }
+
+    /**
+     * Whether reviving should use the shrine route for this player.
+     *
+     * <p>Both revive routes exist at once; this is the switch between them. It is deliberately
+     * consulted server-side only - the client shows the matching tooltip, but never chooses.
+     */
+    public static boolean usesShrineRevive(ServerPlayer player) {
+        return isAbilityActive(player, GlobalUpgrade.SHRINE_REVIVE);
+    }
+
+    /** Flips a toggleable ability's switch. Returns the new state, or false if not owned. */
+    public static boolean toggleAbility(ServerPlayer player, GlobalUpgrade ability) {
+        MaidProgressStorage storage = MaidProgressStorage.get(player.getServer());
+        if (!storage.hasGlobal(player.getUUID(), ability) || !ability.toggleable()) {
+            return false;
+        }
+        boolean nowEnabled = !storage.isAbilityEnabled(player.getUUID(), ability);
+        storage.setAbilityEnabled(player.getUUID(), ability, nowEnabled);
+        return nowEnabled;
+    }
+
+    // ------------------------------------------------------------------
+    // Shrines
+    // ------------------------------------------------------------------
+
+    /** How many shrine items the player is carrying, for both the cost check and the panel. */
+    public static int shrinesHeld(ServerPlayer player) {
+        try {
+            net.minecraft.world.item.Item shrine = InitItems.SHRINE.get();
+            int count = 0;
+            for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                net.minecraft.world.item.ItemStack stack = player.getInventory().getItem(slot);
+                if (!stack.isEmpty() && stack.getItem() == shrine) {
+                    count += stack.getCount();
+                }
+            }
+            return count;
+        } catch (Throwable t) {
+            MaidManagerMod.LOGGER.error("Could not count shrines for {}", player.getUUID(), t);
+            return 0;
+        }
+    }
+
+    /**
+     * Removes {@code amount} shrines, or nothing at all if there are not enough.
+     *
+     * <p>All-or-nothing on purpose: a partial payment would leave the player short and the maid
+     * unrevived, which is worse than refusing.
+     */
+    public static boolean consumeShrines(ServerPlayer player, int amount) {
+        if (amount <= 0) {
+            return true;
+        }
+        if (shrinesHeld(player) < amount) {
+            return false;
+        }
+        try {
+            net.minecraft.world.item.Item shrine = InitItems.SHRINE.get();
+            int left = amount;
+            for (int slot = 0; slot < player.getInventory().getContainerSize() && left > 0; slot++) {
+                net.minecraft.world.item.ItemStack stack = player.getInventory().getItem(slot);
+                if (stack.isEmpty() || stack.getItem() != shrine) {
+                    continue;
+                }
+                int take = Math.min(left, stack.getCount());
+                stack.shrink(take);
+                left -= take;
+            }
+            player.getInventory().setChanged();
+            return true;
+        } catch (Throwable t) {
+            MaidManagerMod.LOGGER.error("Could not consume shrines for {}", player.getUUID(), t);
+            return false;
+        }
+    }
+
 
     // ------------------------------------------------------------------
     // The P-point bank
@@ -304,6 +405,162 @@ public final class MaidProgressionService {
     }
 
     // ------------------------------------------------------------------
+    // Shrine lamps: the fast route into the bank
+    // ------------------------------------------------------------------
+
+    /**
+     * Binds a shrine lamp to the player, replacing any previous binding.
+     *
+     * <p>A lamp absorbs P-points inside its own radius losslessly and holds far more than TLM's
+     * 5.0 wallet, so pointing the bank at one is how a player actually accumulates points. The
+     * binding is just a remembered position; nothing is owned or consumed.
+     *
+     * @return false when the block is not a shrine lamp
+     */
+    public static boolean bindLamp(ServerPlayer player, net.minecraft.core.BlockPos pos) {
+        MaidProgressStorage storage = MaidProgressStorage.get(player.getServer());
+        MaidProgressStorage.BoundLamp existing = storage.boundLamp(player.getUUID());
+        String dimension = player.level().dimension().location().toString();
+        long packed = pos.asLong();
+        if (existing != null && existing.dimension().equals(dimension) && existing.pos() == packed) {
+            // Same lamp again: treat it as a toggle so the gesture can also undo itself.
+            storage.clearBoundLamp(player.getUUID());
+            return false;
+        }
+        storage.setBoundLamp(player.getUUID(), new MaidProgressStorage.BoundLamp(dimension, packed));
+        return true;
+    }
+
+    public static MaidProgressStorage.BoundLamp boundLamp(ServerPlayer player) {
+        return MaidProgressStorage.get(player.getServer()).boundLamp(player.getUUID());
+    }
+
+    /**
+     * Moves stored points out of the player's bound lamp and into the bank.
+     *
+     * <p>Returns 0 - silently, and without loading anything - when the lamp is unbound, in an
+     * unloaded chunk, or holding no more than the reserve. A sweep that quietly does nothing is
+     * correct here: it runs on a timer, and a missing chunk is normal rather than an error.
+     *
+     * @return the amount moved
+     */
+    public static float drainBoundLamp(ServerPlayer player) {
+        MaidProgressStorage storage = MaidProgressStorage.get(player.getServer());
+        MaidProgressStorage.BoundLamp bound = storage.boundLamp(player.getUUID());
+        if (bound == null) {
+            return 0.0F;
+        }
+        try {
+            net.minecraft.resources.ResourceLocation id =
+                    net.minecraft.resources.ResourceLocation.tryParse(bound.dimension());
+            if (id == null) {
+                return 0.0F;
+            }
+            net.minecraft.server.level.ServerLevel level = player.getServer().getLevel(
+                    net.minecraft.resources.ResourceKey.create(
+                            net.minecraft.core.registries.Registries.DIMENSION, id));
+            if (level == null) {
+                return 0.0F;
+            }
+            net.minecraft.core.BlockPos pos = net.minecraft.core.BlockPos.of(bound.pos());
+            // Never force a chunk in: the lamp only works when it is already ticking.
+            if (!level.isLoaded(pos)) {
+                return 0.0F;
+            }
+            if (!(level.getBlockEntity(pos)
+                    instanceof com.github.tartaricacid.touhoulittlemaid.tileentity.TileEntityMaidBeacon lamp)) {
+                return 0.0F;
+            }
+            float stored = lamp.getStoragePower();
+            float reserve = LampDrain.reserveFor(lamp.getEffectCost(),
+                    (float) Config.COMMON.beaconReserve.get().doubleValue());
+            float room = bankCap() - storage.banked(player.getUUID());
+            float moved = LampDrain.drainable(stored, reserve, room);
+            if (moved <= 0.0F) {
+                return 0.0F;
+            }
+            lamp.setStoragePower(stored - moved);
+            lamp.setChanged();
+            storage.deposit(player.getUUID(), moved, bankCap());
+            return moved;
+        } catch (Throwable t) {
+            MaidManagerMod.LOGGER.error("Lamp drain failed for {}", player.getUUID(), t);
+            return 0.0F;
+        }
+    }
+
+    /** Sweeps every online player's bound lamp. Called once a second. */
+    public static void tickLampDrain(MinecraftServer server) {
+        if (!Config.COMMON.autoDrainBeacon.get()) {
+            return;
+        }
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            try {
+                drainBoundLamp(player);
+            } catch (Throwable t) {
+                MaidManagerMod.LOGGER.error("Lamp sweep failed for {}", player.getUUID(), t);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // P-point items straight into the bank
+    // ------------------------------------------------------------------
+
+    /**
+     * Consumes P-point items from the player's inventory into the bank.
+     *
+     * <p>TLM's own use for the item is to <em>throw</em> it, which spawns a collectable entity; the
+     * right-click behaviour is deliberately left alone, so this is only ever reachable from the
+     * panel.
+     *
+     * <p>Only as many items as the bank has room for are taken - the rest stay in the inventory
+     * rather than being destroyed.
+     *
+     * @return how many items were deposited
+     */
+    public static int depositPowerItems(ServerPlayer player) {
+        try {
+            float perItem = (float) Config.COMMON.powerPerItem.get().doubleValue();
+            if (perItem <= 0.0F) {
+                return 0;
+            }
+            MaidProgressStorage storage = MaidProgressStorage.get(player.getServer());
+            float room = bankCap() - storage.banked(player.getUUID());
+            net.minecraft.world.item.Item powerItem = InitItems.POWER_POINT.get();
+            net.minecraft.world.entity.player.Inventory inventory = player.getInventory();
+
+            int held = 0;
+            for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+                net.minecraft.world.item.ItemStack stack = inventory.getItem(slot);
+                if (!stack.isEmpty() && stack.getItem() == powerItem) {
+                    held += stack.getCount();
+                }
+            }
+            int take = LampDrain.itemsAffordable(room, perItem, held);
+            if (take <= 0) {
+                return 0;
+            }
+            int left = take;
+            for (int slot = 0; slot < inventory.getContainerSize() && left > 0; slot++) {
+                net.minecraft.world.item.ItemStack stack = inventory.getItem(slot);
+                if (stack.isEmpty() || stack.getItem() != powerItem) {
+                    continue;
+                }
+                int fromThis = Math.min(left, stack.getCount());
+                stack.shrink(fromThis);
+                left -= fromThis;
+            }
+            inventory.setChanged();
+            storage.deposit(player.getUUID(), take * perItem, bankCap());
+            return take;
+        } catch (Throwable t) {
+            MaidManagerMod.LOGGER.error("P-point item deposit failed for {}", player.getUUID(), t);
+            return 0;
+        }
+    }
+
+    // ------------------------------------------------------------------
     // Opening a maid's own GUI remotely
     // ------------------------------------------------------------------
 
@@ -358,7 +615,7 @@ public final class MaidProgressionService {
             if (!(maid.getOwner() instanceof ServerPlayer serverPlayer)) {
                 return;
             }
-            if (hasAbility(serverPlayer, GlobalUpgrade.DEATH_FAVOR)) {
+            if (isAbilityActive(serverPlayer, GlobalUpgrade.DEATH_FAVOR)) {
                 return;
             }
             int points = Type.DEATH.getPoint();

@@ -2,6 +2,7 @@ package com.dsh.maidmanager.network;
 
 import com.dsh.maidmanager.MaidManagerMod;
 import com.dsh.maidmanager.logic.MaidManagerService;
+import com.dsh.maidmanager.logic.MaidProgressionService;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
@@ -13,11 +14,11 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import java.util.UUID;
 
 /**
- * Client -&gt; server: revive one dead maid, paying the altar's material list.
+ * Client -&gt; server: revive one dead maid.
  *
- * <p>Only the maid id crosses the wire. Ownership, enrolment, the death record and the
- * materials are all re-checked server-side, so a crafted packet can neither revive someone
- * else's maid nor skip the cost.
+ * <p>Only the maid id crosses the wire. Ownership, enrolment, the death record, the route and
+ * whatever that route costs are all re-checked server-side, so a crafted packet can neither
+ * revive someone else's maid nor skip the cost.
  */
 public record C2SReviveMaidPacket(UUID maidId) implements CustomPacketPayload {
 
@@ -47,10 +48,23 @@ public record C2SReviveMaidPacket(UUID maidId) implements CustomPacketPayload {
             if (!(context.player() instanceof ServerPlayer sender)) {
                 return;
             }
-            MaidManagerService.ReviveResult result =
-                    MaidManagerService.beginRevive(sender, msg.maidId);
+            // Which route is used is decided here, from the player's bought ability, rather
+            // than being named by the client: a crafted packet must not be able to pick the
+            // cheaper route, and the two routes cost very different things.
+            MaidManagerService.ReviveResult result = MaidProgressionService
+                    .usesShrineRevive(sender)
+                    ? MaidManagerService.beginShrineRevive(sender, msg.maidId)
+                    : MaidManagerService.beginRevive(sender, msg.maidId);
             // Report refusals explicitly; a silent no-op looks like a broken button.
             switch (result) {
+                case NEED_SHRINES -> sender.displayClientMessage(
+                        Component.translatable("message.touhou_maid_legion.need_shrines",
+                                MaidManagerService.SHRINE_REVIVE_COST), true);
+                case ALREADY_CASTING -> sender.displayClientMessage(
+                        Component.translatable("message.touhou_maid_legion.already_casting"), true);
+                case STARTED_CASTING -> {
+                    // beginShrineRevive already reported the cast length.
+                }
                 case NEED_MATERIALS -> sender.displayClientMessage(
                         Component.translatable("message.touhou_maid_legion.need_materials"), true);
                 case NOT_DEAD -> sender.displayClientMessage(

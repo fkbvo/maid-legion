@@ -25,7 +25,11 @@ public record C2SPowerBankPacket(Action action) implements CustomPacketPayload {
         /** Bank -&gt; wallet, bounded by the wallet's headroom. */
         WITHDRAW,
         /** Flip the per-player automatic sweep. */
-        TOGGLE_AUTO
+        TOGGLE_AUTO,
+        /** Move stored points out of the bound shrine lamp into the bank. */
+        DRAIN_LAMP,
+        /** Consume P-point items from the inventory straight into the bank. */
+        DEPOSIT_ITEMS
     }
 
     public static final Type<C2SPowerBankPacket> TYPE =
@@ -68,6 +72,19 @@ public record C2SPowerBankPacket(Action action) implements CustomPacketPayload {
                             ? Component.translatable("message.touhou_maid_legion.bank_withdraw",
                             String.format("%.2f", taken))
                             : Component.translatable("message.touhou_maid_legion.bank_wallet_full"), true);
+                }
+                case DRAIN_LAMP -> {
+                    float moved = MaidProgressionService.drainBoundLamp(sender);
+                    sender.displayClientMessage(moved > 0.0F
+                            ? Component.translatable("message.touhou_maid_legion.lamp_drained",
+                            String.format("%.2f", moved))
+                            : Component.translatable("message.touhou_maid_legion.lamp_nothing"), true);
+                }
+                case DEPOSIT_ITEMS -> {
+                    int taken = MaidProgressionService.depositPowerItems(sender);
+                    sender.displayClientMessage(taken > 0
+                            ? Component.translatable("message.touhou_maid_legion.items_deposited", taken)
+                            : Component.translatable("message.touhou_maid_legion.items_nothing"), true);
                 }
                 case TOGGLE_AUTO -> {
                     boolean enabled = !MaidProgressionService.autoDepositEnabled(sender);

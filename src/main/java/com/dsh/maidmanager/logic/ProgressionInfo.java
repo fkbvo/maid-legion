@@ -3,7 +3,7 @@ package com.dsh.maidmanager.logic;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 
 /**
- * The player-wide half of a snapshot: wallet, bank and which legion abilities are owned.
+ * The player-wide half of a snapshot: wallet, bank, owned abilities and the shrines on hand.
  *
  * <p>Travels with the maid list rather than in its own message because the screens need a
  * consistent view - showing a maid's row from one tick and the bank balance from another would
@@ -13,20 +13,46 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
  * @param bank        points held in the Legion bank
  * @param bankCap     configured bank capacity
  * @param autoDeposit whether the automatic wallet sweep is on for this player
- * @param globalLevels owned abilities indexed by {@link GlobalUpgrade#ordinal()}
+ * @param globalLevels ability state per {@link GlobalUpgrade#ordinal()}; see the constants below
+ * @param shrineCount shrines in the player's inventory, so the panel can show affordability
  */
 public record ProgressionInfo(float wallet, float bank, float bankCap, boolean autoDeposit,
-                              int[] globalLevels) {
+                              int[] globalLevels, int shrineCount, boolean lampBound) {
+
+    /**
+     * Ability states, packed into {@code globalLevels}.
+     *
+     * <p>Owning an ability and having it switched on are separate things, and the wire format
+     * already carries one int per ability, so the switch rides along in the same slot rather than
+     * needing a parallel array.
+     */
+    public static final int NOT_OWNED = 0;
+    public static final int OWNED_ACTIVE = 1;
+    public static final int OWNED_DISABLED = 2;
 
     public static ProgressionInfo empty() {
         return new ProgressionInfo(0.0F, 0.0F, 0.0F, true,
-                new int[GlobalUpgrade.values().length]);
+                new int[GlobalUpgrade.values().length], 0, false);
     }
 
-    /** Whether the player owns a given ability. */
-    public boolean has(GlobalUpgrade ability) {
+    private int state(GlobalUpgrade ability) {
         int index = ability.ordinal();
-        return index < globalLevels.length && globalLevels[index] > 0;
+        return index < globalLevels.length ? globalLevels[index] : NOT_OWNED;
+    }
+
+    /** Whether the player has bought the ability, regardless of its switch. */
+    public boolean has(GlobalUpgrade ability) {
+        return state(ability) != NOT_OWNED;
+    }
+
+    /**
+     * Whether the ability is currently doing anything.
+     *
+     * <p>False both when it was never bought and when it was switched off; callers that need to
+     * tell those apart should ask {@link #has(GlobalUpgrade)} as well.
+     */
+    public boolean isEnabled(GlobalUpgrade ability) {
+        return state(ability) == OWNED_ACTIVE;
     }
 
     public void write(RegistryFriendlyByteBuf buf) {
@@ -35,6 +61,8 @@ public record ProgressionInfo(float wallet, float bank, float bankCap, boolean a
         buf.writeFloat(bankCap);
         buf.writeBoolean(autoDeposit);
         buf.writeVarIntArray(globalLevels);
+        buf.writeVarInt(shrineCount);
+        buf.writeBoolean(lampBound);
     }
 
     public static ProgressionInfo read(RegistryFriendlyByteBuf buf) {
@@ -45,6 +73,8 @@ public record ProgressionInfo(float wallet, float bank, float bankCap, boolean a
         int[] levels = buf.readVarIntArray();
         int[] normalised = new int[GlobalUpgrade.values().length];
         System.arraycopy(levels, 0, normalised, 0, Math.min(levels.length, normalised.length));
-        return new ProgressionInfo(wallet, bank, bankCap, auto, normalised);
+        int shrines = Math.max(0, buf.readVarInt());
+        boolean lamp = buf.readBoolean();
+        return new ProgressionInfo(wallet, bank, bankCap, auto, normalised, shrines, lamp);
     }
 }

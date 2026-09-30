@@ -155,7 +155,10 @@ public final class MaidManagerService {
                 // UNLOADED maids report 0: their NBT is inside TLM's world data, unreachable from
                 // here, and the upgrade service refuses to sell them anything for the same reason.
                 int experience = experienceById.getOrDefault(entry.id, 0);
-                result.add(entry.withProgression(experience, levelsArray(progress, entry.id)));
+                MaidProgressStorage.ActiveCast cast = progress.activeCast(entry.id);
+                result.add(entry.withProgression(experience, levelsArray(progress, entry.id),
+                        cast == null ? 0L : cast.endsAt(),
+                        cast == null ? 0 : cast.totalTicks()));
             }
         }
         return result;
@@ -179,16 +182,24 @@ public final class MaidManagerService {
     public static ProgressionInfo progression(ServerPlayer player) {
         MaidProgressStorage progress = MaidProgressStorage.get(player.getServer());
         GlobalUpgrade[] abilities = GlobalUpgrade.values();
-        int[] owned = new int[abilities.length];
+        int[] states = new int[abilities.length];
         for (GlobalUpgrade ability : abilities) {
-            owned[ability.ordinal()] = progress.hasGlobal(player.getUUID(), ability) ? 1 : 0;
+            if (!progress.hasGlobal(player.getUUID(), ability)) {
+                states[ability.ordinal()] = ProgressionInfo.NOT_OWNED;
+            } else if (progress.isAbilityEnabled(player.getUUID(), ability)) {
+                states[ability.ordinal()] = ProgressionInfo.OWNED_ACTIVE;
+            } else {
+                states[ability.ordinal()] = ProgressionInfo.OWNED_DISABLED;
+            }
         }
         return new ProgressionInfo(
                 MaidProgressionService.walletOf(player),
                 progress.banked(player.getUUID()),
                 MaidProgressionService.bankCap(),
                 progress.autoDepositEnabled(player.getUUID()),
-                owned);
+                states,
+                MaidProgressionService.shrinesHeld(player),
+                MaidProgressionService.boundLamp(player) != null);
     }
 
     /** True when this maid is enrolled and therefore visible to the panel. */
@@ -308,6 +319,117 @@ public final class MaidManagerService {
      *       back below, so a mod that adds death loot for maids cannot spill it either.</li>
      * </ul>
      */
+    /**
+     * Shrines needed to unlock the shrine revival route, once.
+     *
+     * <p>Read from the ability rather than repeated here, so the price the panel shows and the
+     * price actually charged cannot drift apart. This is an unlock fee, not a per-revive cost:
+     * once bought, channelling is free.
+     */
+    public static final int SHRINE_REVIVE_COST = GlobalUpgrade.SHRINE_REVIVE.shrineCost();
+
+    /**
+     * Starts the shrine revival route: three shrines up front, then a channelled cast.
+     *
+     * <p>Charging before the cast is deliberate - the player is committing to the wait - which is
+     * exactly why the cast is persisted rather than kept in memory. A restart mid-cast would
+     * otherwise swallow the shrines.
+     *
+     * <p>Unlike the material route this one does not place her immediately, so it must not be
+     * used as a cheaper way to skip the altar: it costs three shrine blocks instead.
+     */
+    public static ReviveResult beginShrineRevive(ServerPlayer player, UUID maidId) {
+        if (!ownsMaid(player, maidId)) {
+            return ReviveResult.NOT_OWNER;
+        }
+        if (!isEnrolled(player, maidId)) {
+            return ReviveResult.NOT_ENROLLED;
+        }
+        if (MaidDeathStorage.get(player.getServer()).get(player.getUUID(), maidId) == null) {
+            return ReviveResult.NOT_DEAD;
+        }
+        MaidProgressStorage progress = MaidProgressStorage.get(player.getServer());
+        if (progress.activeCast(maidId) != null) {
+            return ReviveResult.ALREADY_CASTING;
+        }
+        long now = player.getServer().overworld().getGameTime();
+        int ticks = ReviveCast.castTicksFor(currentHeat(progress, maidId));
+        progress.setActiveCast(maidId,
+                new MaidProgressStorage.ActiveCast(player.getUUID(), now + ticks, ticks));
+        player.displayClientMessage(Component.translatable(
+                "message.touhou_maid_legion.shrine_cast_started",
+                Math.round(ticks / 20.0F)), true);
+        return ReviveResult.STARTED_CASTING;
+    }
+
+    /** A maid's heat as of now, cooled, or 0 when she has no record. */
+    private static int currentHeat(MaidProgressStorage progress, UUID maidId) {
+        MaidProgressStorage.DeathHeat heat = progress.deathHeat(maidId);
+        if (heat == null) {
+            return 0;
+        }
+        return ReviveCast.decayHeat(heat.heat(), heat.at(), System.currentTimeMillis());
+    }
+
+    /** The cast in progress for a maid, or null. Used by the snapshot and the panel. */
+    public static MaidProgressStorage.ActiveCast activeCast(MinecraftServer server, UUID maidId) {
+        return MaidProgressStorage.get(server).activeCast(maidId);
+    }
+
+    /**
+     * Advances every shrine revival. Called each server tick.
+     *
+     * <p>A cast that is due but whose owner is offline is <em>left pending</em> and retried on a
+     * later tick rather than cancelled: the shrines are already spent, so dropping the cast would
+     * destroy them for nothing. It completes as soon as they are back.
+     */
+    public static void tickReviveCasts(MinecraftServer server) {
+        MaidProgressStorage progress = MaidProgressStorage.get(server);
+        java.util.Map<UUID, MaidProgressStorage.ActiveCast> casts = progress.activeCasts();
+        if (casts.isEmpty()) {
+            return;
+        }
+        long now = server.overworld().getGameTime();
+        for (java.util.Map.Entry<UUID, MaidProgressStorage.ActiveCast> entry : casts.entrySet()) {
+            UUID maidId = entry.getKey();
+            MaidProgressStorage.ActiveCast cast = entry.getValue();
+            if (now < cast.endsAt()) {
+                continue;
+            }
+            ServerPlayer owner = server.getPlayerList().getPlayer(cast.owner());
+            if (owner == null) {
+                // Offline: keep the cast so the shrines are not lost. Retried every tick.
+                continue;
+            }
+            MaidDeathStorage.DeadMaid record =
+                    MaidDeathStorage.get(server).get(owner.getUUID(), maidId);
+            if (record == null) {
+                // Her record is gone; there is nothing left to revive. Nothing was paid per
+                // revive, so there is nothing to hand back either.
+                progress.clearActiveCast(maidId);
+                owner.displayClientMessage(Component.translatable(
+                        "message.touhou_maid_legion.shrine_cast_refunded"), true);
+                continue;
+            }
+            // Captured before finishRevive, which deletes the record.
+            String name = record.name();
+            try {
+                if (finishRevive(owner, maidId)) {
+                    progress.clearActiveCast(maidId);
+                    owner.displayClientMessage(Component.translatable(
+                            "message.touhou_maid_legion.revive_done", name), true);
+                } else {
+                    progress.clearActiveCast(maidId);
+                    owner.displayClientMessage(Component.translatable(
+                            "message.touhou_maid_legion.shrine_cast_failed"), true);
+                }
+            } catch (Throwable t) {
+                MaidManagerMod.LOGGER.error("Shrine revival failed for maid {}", maidId, t);
+                progress.clearActiveCast(maidId);
+            }
+        }
+    }
+
     private static boolean finishRevive(ServerPlayer player, UUID maidId) {
         MaidDeathStorage storage = MaidDeathStorage.get(player.getServer());
         MaidDeathStorage.DeadMaid dead = storage.get(player.getUUID(), maidId);
@@ -405,6 +527,12 @@ public final class MaidManagerService {
 
     /** Outcome of asking to revive, so the caller can pick the right message. */
     public enum ReviveResult {
+        /** The shrine route needs three shrines and the player does not have them. */
+        NEED_SHRINES,
+        /** A shrine revival is already channelling for this maid. */
+        ALREADY_CASTING,
+        /** The shrine route was started; see {@code activeCast} for how long it takes. */
+        STARTED_CASTING,
         STARTED,
         /** She is not this player's maid at all. */
         NOT_OWNER,
@@ -488,11 +616,19 @@ public final class MaidManagerService {
      */
     public static boolean releaseStored(ServerPlayer player, UUID maidId) {
         if (!canControl(player, maidId)) {
+            // Say which half refused: "not yours" and "not enrolled" have different fixes, and
+            // without this the panel just reports an unrelated chunk-loading problem.
+            MaidManagerMod.LOGGER.warn(
+                    "Summon {} refused: owns={} enrolled={}", maidId,
+                    ownsMaid(player, maidId), isEnrolled(player, maidId));
             return false;
         }
         MaidStorage storage = MaidStorage.get(player.getServer());
         MaidStorage.StoredMaid stored = storage.get(player.getUUID(), maidId);
         if (stored == null) {
+            MaidManagerMod.LOGGER.warn(
+                    "Summon {} refused: not in the store (this player has {} stored)",
+                    maidId, storage.countFor(player.getUUID()));
             return false;
         }
         ServerLevel level = player.serverLevel();
@@ -610,6 +746,16 @@ public final class MaidManagerService {
      * would, then falls back to a small spiral search.
      */
     @Nullable
+    /**
+     * A spot to put a released maid, never null when the player is standing somewhere valid.
+     *
+     * <p>Three passes, from strict to permissive, and finally the player's own position. The
+     * strict test is TLM's own placement helper, which is more particular than "can an entity
+     * stand here"; when it vetoed every candidate the release silently failed, the player was
+     * shown an unrelated "her chunk is not loaded" message, and a maid he had paid to store was
+     * stranded with no button able to bring her back. Refusing to place her because no <em>ideal</em>
+     * spot exists is far worse than placing her slightly awkwardly: she can be moved afterwards.
+     */
     public static BlockPos findSpawnPos(ServerLevel level, ServerPlayer player) {
         BlockPos origin = player.blockPosition();
         if (isSafe(level, origin)) {
@@ -633,14 +779,34 @@ public final class MaidManagerService {
         return null;
     }
 
-    private static boolean isSafe(ServerLevel level, BlockPos pos) {
-        try {
-            if (PlaceHelper.notSuitableForPlaceMaid(level, pos.below())) {
-                return false;
-            }
-        } catch (Throwable ignored) {
-            // If the helper is unavailable, fall through to the generic checks.
+    /**
+     * Whether a maid can be released here: room at her feet and head, and something to stand on.
+     *
+     * <p>TLM's {@code PlaceHelper.notSuitableForPlaceMaid} used to be consulted first, but it is
+     * not an extra rule. Called with {@code pos.below()} it resolves to
+     * {@code getCollisionShape(pos).isEmpty() && getCollisionShape(pos.above()).isEmpty()} - the
+     * same two blocks, through the same call, on the same level - so it could only ever agree with
+     * the two checks below. It read like a third condition and was not one.
+     */
+    /**
+     * Whether there is no ground for a released maid to stand on.
+     *
+     * <p>A maid is placed on the ground, so a flying player is surrounded by nothing but air and
+     * every candidate position is rejected. That is the ordinary case here, not an edge case:
+     * creative flight is the whole reason this mod exists. The player is asked to land rather than
+     * being left with a refusal that blames an unloaded chunk.
+     *
+     * <p>The world is asked rather than the movement flag, because {@code onGround} is briefly
+     * false after landing and while standing on an entity or a boat.
+     */
+    public static boolean isAirborne(ServerPlayer player) {
+        if (player.getAbilities().flying) {
+            return true;
         }
+        return !isSafe(player.serverLevel(), player.blockPosition());
+    }
+
+    private static boolean isSafe(ServerLevel level, BlockPos pos) {
         if (!level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()) {
             return false;
         }

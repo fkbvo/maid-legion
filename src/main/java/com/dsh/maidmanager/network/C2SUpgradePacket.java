@@ -1,6 +1,7 @@
 package com.dsh.maidmanager.network;
 
 import com.dsh.maidmanager.MaidManagerMod;
+import com.dsh.maidmanager.logic.GlobalUpgrade;
 import com.dsh.maidmanager.logic.MaidProgressionService;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -19,7 +20,17 @@ import java.util.UUID;
  * share a packet because they differ only in which wallet the server charges, and the server
  * re-reads the definition from the id either way - the client cannot influence the price.
  */
-public record C2SUpgradePacket(UUID maidId, String upgradeId) implements CustomPacketPayload {
+public record C2SUpgradePacket(UUID maidId, String upgradeId, Mode mode) implements CustomPacketPayload {
+
+    /** Buying a level, or flipping a toggleable ability's switch. */
+    public enum Mode {
+        BUY,
+        TOGGLE
+    }
+
+    public C2SUpgradePacket(UUID maidId, String upgradeId) {
+        this(maidId, upgradeId, Mode.BUY);
+    }
 
     public static final Type<C2SUpgradePacket> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(MaidManagerMod.MOD_ID, "upgrade"));
@@ -29,7 +40,8 @@ public record C2SUpgradePacket(UUID maidId, String upgradeId) implements CustomP
                 @Override
                 public C2SUpgradePacket decode(RegistryFriendlyByteBuf buf) {
                     UUID maidId = buf.readBoolean() ? buf.readUUID() : null;
-                    return new C2SUpgradePacket(maidId, buf.readUtf());
+                    String upgradeId = buf.readUtf();
+                    return new C2SUpgradePacket(maidId, upgradeId, buf.readEnum(Mode.class));
                 }
 
                 @Override
@@ -39,6 +51,7 @@ public record C2SUpgradePacket(UUID maidId, String upgradeId) implements CustomP
                         buf.writeUUID(msg.maidId);
                     }
                     buf.writeUtf(msg.upgradeId);
+                    buf.writeEnum(msg.mode);
                 }
             };
 
@@ -52,6 +65,17 @@ public record C2SUpgradePacket(UUID maidId, String upgradeId) implements CustomP
             if (!(context.player() instanceof ServerPlayer sender)) {
                 return;
             }
+            if (msg.mode == Mode.TOGGLE) {
+                GlobalUpgrade ability = GlobalUpgrade.byId(msg.upgradeId);
+                if (ability != null) {
+                    boolean nowOn = MaidProgressionService.toggleAbility(sender, ability);
+                    sender.displayClientMessage(Component.translatable(nowOn
+                            ? "message.touhou_maid_legion.ability_on"
+                            : "message.touhou_maid_legion.ability_off"), true);
+                }
+                MaidActionHandler.refresh(sender);
+                return;
+            }
             MaidProgressionService.UpgradeResult result = msg.maidId() == null
                     ? MaidProgressionService.buyGlobalUpgrade(sender, msg.upgradeId())
                     : MaidProgressionService.buyMaidUpgrade(sender, msg.maidId(), msg.upgradeId());
@@ -59,6 +83,9 @@ public record C2SUpgradePacket(UUID maidId, String upgradeId) implements CustomP
             switch (result) {
                 case NOT_ENOUGH_EXP -> sender.displayClientMessage(
                         Component.translatable("message.touhou_maid_legion.upgrade_no_exp"), true);
+                case NEED_SHRINES -> sender.displayClientMessage(
+                        Component.translatable("message.touhou_maid_legion.need_shrines",
+                                GlobalUpgrade.SHRINE_REVIVE.shrineCost()), true);
                 case NOT_ENOUGH_POWER -> sender.displayClientMessage(
                         Component.translatable("message.touhou_maid_legion.upgrade_no_power"), true);
                 case MAX_LEVEL -> sender.displayClientMessage(

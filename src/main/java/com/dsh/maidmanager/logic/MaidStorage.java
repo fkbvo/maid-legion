@@ -73,6 +73,12 @@ public final class MaidStorage extends SavedData {
         return byOwner.isEmpty();
     }
 
+    /** How many maids this player has stored. Used by the summon diagnostics. */
+    public int countFor(UUID owner) {
+        Map<UUID, StoredMaid> maids = byOwner.get(owner);
+        return maids == null ? 0 : maids.size();
+    }
+
     /**
      * One-time copy of every stored maid.
      *
