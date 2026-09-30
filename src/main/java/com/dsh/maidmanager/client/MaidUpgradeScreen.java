@@ -59,7 +59,7 @@ public class MaidUpgradeScreen extends Screen {
     private static final int COL_BUTTON = 660;
 
     private static final int GLOBAL_FUNDS_TOP = 50;
-    private static final int GLOBAL_FUNDS_H = 52;
+    private static final int GLOBAL_FUNDS_H = 74;
     private static final int GLOBAL_ROW_H = 52;
 
     private static final int COLOUR_TITLE = 0xFFFFFF;
@@ -330,7 +330,12 @@ public class MaidUpgradeScreen extends Screen {
                     button.setMessage(Component.translatable(owned
                             ? "gui.touhou_maid_legion.upgrade.owned"
                             : "gui.touhou_maid_legion.upgrade.buy"));
+                    if (ability.buyableWithShrines()) {
+                    button.setMessage(Component.translatable("gui.touhou_maid_legion.global.g_shrine.buy"));
+                    button.active = !owned && info.shrineCount() >= ability.shrineCost();
+                } else {
                     button.active = !owned && info.bank() >= ability.powerCost();
+                }
                 }
             }
         }
@@ -483,15 +488,39 @@ public class MaidUpgradeScreen extends Screen {
             graphics.drawString(this.font,
                     Component.translatable(ability.translationKey()).getString(),
                     contentLeft + 4, y + 4, COLOUR_TITLE);
-            graphics.drawString(this.font,
+            // The description is clipped to the gap before the price column. A long translation
+            // used to run straight through the price and the button, which read as one smear of
+            // overlapping text.
+            int descLeft = contentLeft + 150;
+            int descLimit = contentLeft + contentWidth - 160;
+            String desc = this.font.plainSubstrByWidth(
                     Component.translatable(ability.descriptionKey()).getString(),
-                    contentLeft + 150, y + 4, COLOUR_LABEL);
-            Component status = Component.translatable(owned
-                    ? "gui.touhou_maid_legion.global.status_owned"
-                    : "gui.touhou_maid_legion.global.status_locked");
-            graphics.drawString(this.font, status.getString(), contentLeft + 150, y + 18,
-                    owned ? COLOUR_GREEN : COLOUR_FAINT);
-            String cost = ability.powerCost() + " P";
+                    Math.max(20, descLimit - descLeft));
+            graphics.drawString(this.font, desc, descLeft, y + 4, COLOUR_LABEL);
+
+            // "Owned - permanent" is wrong for a toggleable ability: it can be switched off, so
+            // say what the switch is actually set to instead of contradicting the button beside it.
+            Component status;
+            int statusColour;
+            if (!owned) {
+                status = Component.translatable("gui.touhou_maid_legion.global.status_locked");
+                statusColour = COLOUR_FAINT;
+            } else if (ability.toggleable()) {
+                status = Component.translatable(info.isEnabled(ability)
+                        ? "gui.touhou_maid_legion.global.status_on"
+                        : "gui.touhou_maid_legion.global.status_off");
+                statusColour = info.isEnabled(ability) ? COLOUR_GREEN : COLOUR_GOLD;
+            } else {
+                status = Component.translatable("gui.touhou_maid_legion.global.status_owned");
+                statusColour = COLOUR_GREEN;
+            }
+            graphics.drawString(this.font, status.getString(), descLeft, y + 18, statusColour);
+
+            // Say what it actually costs: shrines for the one unlocked with them, points otherwise.
+            String cost = ability.buyableWithShrines()
+                    ? ability.shrineCost() + " " + Component.translatable(
+                            "gui.touhou_maid_legion.global.unit_shrine").getString()
+                    : ability.powerCost() + " P";
             graphics.drawString(this.font, cost,
                     contentLeft + contentWidth - 150, y + 16,
                     owned ? COLOUR_FAINT : COLOUR_GOLD);

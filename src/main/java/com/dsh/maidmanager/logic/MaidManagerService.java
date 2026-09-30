@@ -318,8 +318,14 @@ public final class MaidManagerService {
      *       back below, so a mod that adds death loot for maids cannot spill it either.</li>
      * </ul>
      */
-    /** How many shrine items the cast route costs. */
-    public static final int SHRINE_REVIVE_COST = 3;
+    /**
+     * Shrines needed to unlock the shrine revival route, once.
+     *
+     * <p>Read from the ability rather than repeated here, so the price the panel shows and the
+     * price actually charged cannot drift apart. This is an unlock fee, not a per-revive cost:
+     * once bought, channelling is free.
+     */
+    public static final int SHRINE_REVIVE_COST = GlobalUpgrade.SHRINE_REVIVE.shrineCost();
 
     /**
      * Starts the shrine revival route: three shrines up front, then a channelled cast.
@@ -345,10 +351,6 @@ public final class MaidManagerService {
         if (progress.activeCast(maidId) != null) {
             return ReviveResult.ALREADY_CASTING;
         }
-        if (!MaidProgressionService.consumeShrines(player, SHRINE_REVIVE_COST)) {
-            return ReviveResult.NEED_SHRINES;
-        }
-
         long now = player.getServer().overworld().getGameTime();
         int ticks = ReviveCast.castTicksFor(currentHeat(progress, maidId));
         progress.setActiveCast(maidId,
@@ -401,9 +403,9 @@ public final class MaidManagerService {
             MaidDeathStorage.DeadMaid record =
                     MaidDeathStorage.get(server).get(owner.getUUID(), maidId);
             if (record == null) {
-                // Her record is gone; nothing left to revive, so the payment is returned.
+                // Her record is gone; there is nothing left to revive. Nothing was paid per
+                // revive, so there is nothing to hand back either.
                 progress.clearActiveCast(maidId);
-                MaidProgressionService.refundShrines(owner, SHRINE_REVIVE_COST);
                 owner.displayClientMessage(Component.translatable(
                         "message.touhou_maid_legion.shrine_cast_refunded"), true);
                 continue;
@@ -416,16 +418,13 @@ public final class MaidManagerService {
                     owner.displayClientMessage(Component.translatable(
                             "message.touhou_maid_legion.revive_done", name), true);
                 } else {
-                    // Placement failed: hand the shrines back rather than eating them.
                     progress.clearActiveCast(maidId);
-                    MaidProgressionService.refundShrines(owner, SHRINE_REVIVE_COST);
                     owner.displayClientMessage(Component.translatable(
                             "message.touhou_maid_legion.shrine_cast_failed"), true);
                 }
             } catch (Throwable t) {
                 MaidManagerMod.LOGGER.error("Shrine revival failed for maid {}", maidId, t);
                 progress.clearActiveCast(maidId);
-                MaidProgressionService.refundShrines(owner, SHRINE_REVIVE_COST);
             }
         }
     }

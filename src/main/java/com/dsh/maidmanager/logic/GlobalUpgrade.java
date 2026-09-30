@@ -42,7 +42,7 @@ public enum GlobalUpgrade {
      * {@link #ordinal()}, so inserting anywhere earlier would silently re-point every existing
      * save's abilities at the wrong entry.
      */
-    SHRINE_REVIVE("g_shrine", 100, Kind.EVENT);
+    SHRINE_REVIVE("g_shrine", 0, 3, Kind.EVENT);
 
     /** How the ability takes effect, so the service knows what to wire up. */
     public enum Kind {
@@ -54,9 +54,16 @@ public enum GlobalUpgrade {
 
     private final String id;
     private final int powerCost;
+    /** Shrines needed to unlock instead of points; see {@link #shrineCost()}. */
+    private final int shrineCost;
     private final Kind kind;
 
     GlobalUpgrade(String id, int powerCost, Kind kind) {
+        this(id, powerCost, 0, kind);
+    }
+
+    GlobalUpgrade(String id, int powerCost, int shrineCost, Kind kind) {
+        this.shrineCost = shrineCost;
         this.id = id;
         this.powerCost = powerCost;
         this.kind = kind;
@@ -98,6 +105,21 @@ public enum GlobalUpgrade {
      * <p>{@link MaidProgressStorage} stores the switch for every ability regardless, so widening
      * this later is a one-line change.
      */
+    /**
+     * Shrines needed to unlock this ability, instead of P points.
+     *
+     * <p>Zero for every ability bought from the bank. The shrine revival is the exception: it is
+     * paid for in the shrines themselves, once, and is free forever after.
+     */
+    public int shrineCost() {
+        return shrineCost;
+    }
+
+    /** True when this is unlocked with shrines rather than banked P points. */
+    public boolean buyableWithShrines() {
+        return shrineCost > 0;
+    }
+
     public boolean toggleable() {
         return this == FLIGHT || this == SHRINE_REVIVE;
     }

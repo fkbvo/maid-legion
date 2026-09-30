@@ -25,6 +25,8 @@ public final class MaidProgressionService {
 
     /** Outcome of an attempted purchase, so the caller can pick the right message. */
     public enum UpgradeResult {
+        /** The unlock costs shrines and the player does not have them. */
+        NEED_SHRINES,
         OK,
         /** The feature is switched off server-side. */
         DISABLED,
@@ -173,6 +175,15 @@ public final class MaidProgressionService {
         MaidProgressStorage storage = MaidProgressStorage.get(player.getServer());
         if (storage.hasGlobal(player.getUUID(), ability)) {
             return UpgradeResult.MAX_LEVEL;
+        }
+        if (ability.buyableWithShrines()) {
+            // Paid for in shrines, once, and free forever after. Deliberately not a per-revive
+            // cost: the price of this route is the wait, not a shrine each time.
+            if (!consumeShrines(player, ability.shrineCost())) {
+                return UpgradeResult.NEED_SHRINES;
+            }
+            storage.setGlobalLevel(player.getUUID(), ability, 1);
+            return UpgradeResult.OK;
         }
         if (!storage.charge(player.getUUID(), ability.powerCost())) {
             return UpgradeResult.NOT_ENOUGH_POWER;

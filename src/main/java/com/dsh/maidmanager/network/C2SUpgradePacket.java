@@ -79,6 +79,10 @@ public class C2SUpgradePacket {
                 switch (result) {
                     case NOT_ENOUGH_EXP -> sender.displayClientMessage(
                             Component.translatable("message.touhou_maid_legion.upgrade_no_exp"), true);
+                    case NEED_SHRINES -> sender.displayClientMessage(
+                            Component.translatable("message.touhou_maid_legion.need_shrines",
+                                    com.dsh.maidmanager.logic.GlobalUpgrade.SHRINE_REVIVE.shrineCost()),
+                            true);
                     case NOT_ENOUGH_POWER -> sender.displayClientMessage(
                             Component.translatable("message.touhou_maid_legion.upgrade_no_power"), true);
                     case MAX_LEVEL -> sender.displayClientMessage(

@@ -217,13 +217,17 @@
   "gui.touhou_maid_legion.revive.shrine.tooltip": "消耗 %s 个神龛，不用材料，但要读条",
   "gui.touhou_maid_legion.bank.drain_lamp": "从亭灯提取",
   "gui.touhou_maid_legion.bank.deposit_items": "存入P点物品",
-  "gui.touhou_maid_legion.bank.shrines": "神龛 %s / %s",
+  "gui.touhou_maid_legion.bank.shrines": "神龛 %s / %s（解锁用）",
   "gui.touhou_maid_legion.bank.lamp_none": "未绑定亭灯：潜行 + 手持御币右键亭灯",
   "gui.touhou_maid_legion.upgrade.enabled": "已开启",
   "gui.touhou_maid_legion.upgrade.disabled": "已关闭",
   "gui.touhou_maid_legion.upgrade.pick_one": "请先在终端里勾选一只女仆，再点她那一行的「强化」。",
   "gui.touhou_maid_legion.global.g_shrine": "神龛复活",
-  "gui.touhou_maid_legion.global.g_shrine.desc": "阵亡后用 3 个神龛读条复活，完全不消耗材料；关闭则改回材料立即复活",
-  "gui.touhou_maid_legion.revive.tooltip.shrine": "消耗：%s 个神龛（读条）",
-  "message.touhou_maid_legion.land_first": "你正在飞行/悬空，女仆需要有地面才能放下。请先落地再召唤。"
+  "gui.touhou_maid_legion.global.g_shrine.desc": "用 3 个神龛一次性解锁。开启后，阵亡女仆可读条复活，之后不再消耗任何材料或神龛",
+  "gui.touhou_maid_legion.revive.tooltip.shrine": "免费复活，需要读条",
+  "message.touhou_maid_legion.land_first": "你正在飞行/悬空，女仆需要有地面才能放下。请先落地再召唤。",
+  "gui.touhou_maid_legion.global.g_shrine.buy": "神龛解锁",
+  "gui.touhou_maid_legion.global.unit_shrine": "神龛",
+  "gui.touhou_maid_legion.global.status_off": "已购买 · 当前已关闭",
+  "gui.touhou_maid_legion.global.status_on": "已购买 · 当前已开启"
 }

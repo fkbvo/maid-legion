@@ -217,13 +217,17 @@
   "gui.touhou_maid_legion.revive.shrine.tooltip": "Costs %s shrines, no materials, but channelled",
   "gui.touhou_maid_legion.bank.drain_lamp": "Drain lamp",
   "gui.touhou_maid_legion.bank.deposit_items": "Bank P items",
-  "gui.touhou_maid_legion.bank.shrines": "Shrines %s / %s",
+  "gui.touhou_maid_legion.bank.shrines": "Shrines %s / %s (to unlock)",
   "gui.touhou_maid_legion.bank.lamp_none": "No lamp bound: sneak + right-click one with a gohei",
   "gui.touhou_maid_legion.upgrade.enabled": "On",
   "gui.touhou_maid_legion.upgrade.disabled": "Off",
   "gui.touhou_maid_legion.upgrade.pick_one": "Open this from a maid row's Upgrade chip.",
   "gui.touhou_maid_legion.global.g_shrine": "Shrine revival",
-  "gui.touhou_maid_legion.global.g_shrine.desc": "Revive with 3 shrines and a short cast, using no materials at all; switch it off to go back to instant material revives",
-  "gui.touhou_maid_legion.revive.tooltip.shrine": "Cost: %s shrines (channelled)",
-  "message.touhou_maid_legion.land_first": "You are airborne. A maid needs ground to stand on - please land before summoning."
+  "gui.touhou_maid_legion.global.g_shrine.desc": "Unlocked once with 3 shrines. While on, a fallen maid can be revived by channelling, at no further cost in materials or shrines",
+  "gui.touhou_maid_legion.revive.tooltip.shrine": "Free revival, channelled",
+  "message.touhou_maid_legion.land_first": "You are airborne. A maid needs ground to stand on - please land before summoning.",
+  "gui.touhou_maid_legion.global.g_shrine.buy": "Unlock",
+  "gui.touhou_maid_legion.global.unit_shrine": "shrines",
+  "gui.touhou_maid_legion.global.status_off": "Owned - currently off",
+  "gui.touhou_maid_legion.global.status_on": "Owned - currently on"
 }
