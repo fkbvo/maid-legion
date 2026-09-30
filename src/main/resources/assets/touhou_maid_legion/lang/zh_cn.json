@@ -224,5 +224,6 @@
   "gui.touhou_maid_legion.upgrade.pick_one": "请先在终端里勾选一只女仆，再点她那一行的「强化」。",
   "gui.touhou_maid_legion.global.g_shrine": "神龛复活",
   "gui.touhou_maid_legion.global.g_shrine.desc": "阵亡后用 3 个神龛读条复活，完全不消耗材料；关闭则改回材料立即复活",
-  "gui.touhou_maid_legion.revive.tooltip.shrine": "消耗：%s 个神龛（读条）"
+  "gui.touhou_maid_legion.revive.tooltip.shrine": "消耗：%s 个神龛（读条）",
+  "message.touhou_maid_legion.land_first": "你正在飞行/悬空，女仆需要有地面才能放下。请先落地再召唤。"
 }

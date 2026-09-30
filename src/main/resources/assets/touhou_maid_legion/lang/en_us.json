@@ -224,5 +224,6 @@
   "gui.touhou_maid_legion.upgrade.pick_one": "Open this from a maid row's Upgrade chip.",
   "gui.touhou_maid_legion.global.g_shrine": "Shrine revival",
   "gui.touhou_maid_legion.global.g_shrine.desc": "Revive with 3 shrines and a short cast, using no materials at all; switch it off to go back to instant material revives",
-  "gui.touhou_maid_legion.revive.tooltip.shrine": "Cost: %s shrines (channelled)"
+  "gui.touhou_maid_legion.revive.tooltip.shrine": "Cost: %s shrines (channelled)",
+  "message.touhou_maid_legion.land_first": "You are airborne. A maid needs ground to stand on - please land before summoning."
 }

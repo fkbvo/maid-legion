@@ -1,5 +1,8 @@
 package com.dsh.maidmanager.network;
 
+import com.dsh.maidmanager.MaidManagerMod;
+import com.dsh.maidmanager.logic.MaidStorage;
+
 import com.dsh.maidmanager.Config;
 import com.dsh.maidmanager.logic.MaidManagerService;
 import com.dsh.maidmanager.logic.MaidRegistry;
@@ -120,6 +123,16 @@ public class C2SMaidActionPacket {
      * </ol>
      */
     private static boolean summonOne(ServerPlayer player, UUID maidId) {
+        // A released maid is put on the ground, and a flying player has only air around him: every
+        // placement candidate is rejected, and the refusal used to be reported as an unloaded
+        // chunk, which sent the player looking in entirely the wrong place. Say what is actually
+        // wrong instead.
+        if (MaidStorage.get(player.getServer()).contains(player.getUUID(), maidId)
+                && MaidManagerService.isAirborne(player)) {
+            player.displayClientMessage(
+                    Component.translatable("message.touhou_maid_legion.land_first"), true);
+            return false;
+        }
         // Stored by us: release from NBT, no chunk loading needed.
         if (MaidManagerService.releaseStored(player, maidId)) {
             return true;
@@ -133,6 +146,11 @@ public class C2SMaidActionPacket {
         // later tick; report the outcome either way.
         boolean forceLoad = MaidRegistry.get(player.getServer()).isForceLoad(player.getUUID(), maidId);
         if (!forceLoad || !MaidUtil.isTlmAvailable()) {
+            // Logged so this path is distinguishable from a storage failure: the message shown to
+            // the player is the same either way, and they are very different bugs.
+            MaidManagerMod.LOGGER.warn(
+                    "Summon {} refused: not stored, not loaded, forceLoad={} tlmAvailable={}",
+                    maidId, forceLoad, MaidUtil.isTlmAvailable());
             player.sendSystemMessage(Component.translatable("message.touhou_maid_legion.cannot_reach"));
             return false;
         }

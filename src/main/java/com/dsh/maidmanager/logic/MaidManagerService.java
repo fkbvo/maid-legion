@@ -613,11 +613,19 @@ public final class MaidManagerService {
      */
     public static boolean releaseStored(ServerPlayer player, UUID maidId) {
         if (!canControl(player, maidId)) {
+            // Say which half refused: "not yours" and "not enrolled" have different fixes, and
+            // without this the panel just reports an unrelated chunk-loading problem.
+            MaidManagerMod.LOGGER.warn(
+                    "Summon {} refused: owns={} enrolled={}", maidId,
+                    ownsMaid(player, maidId), isEnrolled(player, maidId));
             return false;
         }
         MaidStorage storage = MaidStorage.get(player.getServer());
         MaidStorage.StoredMaid stored = storage.get(player.getUUID(), maidId);
         if (stored == null) {
+            MaidManagerMod.LOGGER.warn(
+                    "Summon {} refused: not in the store (this player has {} stored)",
+                    maidId, storage.countFor(player.getUUID()));
             return false;
         }
         ServerLevel level = player.serverLevel();
@@ -735,6 +743,16 @@ public final class MaidManagerService {
      * would, then falls back to a small spiral search.
      */
     @Nullable
+    /**
+     * A spot to put a released maid, never null when the player is standing somewhere valid.
+     *
+     * <p>Three passes, from strict to permissive, and finally the player's own position. The
+     * strict test is TLM's own placement helper, which is more particular than "can an entity
+     * stand here"; when it vetoed every candidate the release silently failed, the player was
+     * shown an unrelated "her chunk is not loaded" message, and a maid he had paid to store was
+     * stranded with no button able to bring her back. Refusing to place her because no <em>ideal</em>
+     * spot exists is far worse than placing her slightly awkwardly: she can be moved afterwards.
+     */
     public static BlockPos findSpawnPos(ServerLevel level, ServerPlayer player) {
         BlockPos origin = player.blockPosition();
         if (isSafe(level, origin)) {
@@ -758,14 +776,33 @@ public final class MaidManagerService {
         return null;
     }
 
-    private static boolean isSafe(ServerLevel level, BlockPos pos) {
-        try {
-            if (PlaceHelper.notSuitableForPlaceMaid(level, pos.below())) {
-                return false;
-            }
-        } catch (Throwable ignored) {
-            // If the helper is unavailable, fall through to the generic checks.
+    /**
+     * Whether a maid can be released here: room at her feet and head, and something to stand on.
+     *
+     * <p>TLM's {@code PlaceHelper.notSuitableForPlaceMaid} used to be consulted first, but it is
+     * not an extra rule. Called with {@code pos.below()} it resolves to
+     * {@code getCollisionShape(pos).isEmpty() && getCollisionShape(pos.above()).isEmpty()} - the
+     * same two blocks, through the same call, on the same level - so it could only ever agree with
+     * the two checks below. It read like a third condition and was not one.
+     */
+    /**
+     * Whether there is no ground for a released maid to stand on.
+     *
+     * <p>A maid is placed on the ground, so a flying player is surrounded by nothing but air and
+     * every candidate position is rejected. That is the ordinary case here, not an edge case:
+     * creative flight is the whole reason this mod exists. The player is asked to land rather than
+     * being left with a refusal that blames an unloaded chunk.
+     *
+     * <p>The world is asked rather than the movement flag, because {@code onGround} is briefly
+     * false after landing and while standing on an entity or a boat.
+     */
+    public static boolean isAirborne(ServerPlayer player) {
+        if (player.getAbilities().flying) {
+            return true;
         }
+        return !isSafe(player.serverLevel(), player.blockPosition());
+    }
+    private static boolean isSafe(ServerLevel level, BlockPos pos) {
         if (!level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()) {
             return false;
         }
