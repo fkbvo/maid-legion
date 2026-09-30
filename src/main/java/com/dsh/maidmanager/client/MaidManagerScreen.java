@@ -111,12 +111,15 @@ public class MaidManagerScreen extends Screen {
         // Footer: five buttons, centred, wrapped onto two rows when the window is too narrow to
         // hold them side by side. Widths are fixed rather than text-measured so the layout cannot
         // shift when a translation changes.
+        // Footer: five buttons in two visually separate groups, centred as a whole. The first
+        // group acts on one chosen maid, the second on the whole batch; the wider gap between
+        // them is what makes that difference readable at a glance.
         int[] widths = {OPEN_GUI_W, UPGRADE_W, SUMMON_W, STORE_W, REFRESH_W};
         int gap = 6;
-        int total = (widths.length - 1) * gap;
-        for (int w : widths) {
-            total += w;
-        }
+        // Larger than `gap`, so the two groups do not read as one run of five.
+        int groupGap = 18;
+        int total = widths[0] + widths[1] + widths[2] + widths[3] + widths[4]
+                + 3 * gap + groupGap;
         boolean wrap = total > this.width - 16;
         // A wrapped footer is taller, so the list has to stop higher up or the second row would
         // be drawn over the last maid.
@@ -126,6 +129,7 @@ public class MaidManagerScreen extends Screen {
         int row1Y = wrap ? row2Y - 24 : row2Y;
 
         if (wrap) {
+            // Row 1: the single-maid actions. Row 2: the batch actions.
             int row1 = widths[0] + gap + widths[1];
             int x = this.width / 2 - row1 / 2;
             this.openGuiButton = addRenderableWidget(Button.builder(
@@ -161,7 +165,7 @@ public class MaidManagerScreen extends Screen {
                             Component.translatable("gui.maid_legion.upgrade"),
                             b -> openUpgradeScreen())
                     .bounds(x, row2Y, widths[1], 20).build());
-            x += widths[1] + gap;
+            x += widths[1] + groupGap;
             this.summonButton = addRenderableWidget(Button.builder(
                             Component.translatable("gui.maid_legion.summon"), b -> summonSelected())
                     .bounds(x, row2Y, widths[2], 20).build());
@@ -175,7 +179,6 @@ public class MaidManagerScreen extends Screen {
                             b -> ClientInput.requestRefresh())
                     .bounds(x, row2Y, widths[4], 20).build());
         }
-
         // There is deliberately no revive button here. Revive lives on the fallen maid's own
         // status badge, which turns into a clickable "revive" while the cursor is over it, so
         // the action sits on the row it applies to instead of in a separate row at the bottom
@@ -183,7 +186,7 @@ public class MaidManagerScreen extends Screen {
 
         addRenderableWidget(Button.builder(
                         Component.translatable("gui.maid_legion.select_all"), b -> selectAll(true))
-                .bounds(listRight - 126, 22, 60, 16).build());
+                .bounds(listRight - 128, 22, 60, 16).build());
         addRenderableWidget(Button.builder(
                         Component.translatable("gui.maid_legion.clear"), b -> selectAll(false))
                 .bounds(listRight - 62, 22, 60, 16).build());
@@ -195,7 +198,7 @@ public class MaidManagerScreen extends Screen {
                         Component.translatable("gui.maid_legion.help"),
                         b -> net.minecraft.client.Minecraft.getInstance().setScreen(
                                 new HelpScreen(this)))
-                .bounds(listRight - 160, 22, 30, 16).build());
+                .bounds(listRight - 164, 22, 30, 16).build());
 
         // Toggle that narrows the list to starred maids only.
         this.favouritesButton = addRenderableWidget(Button.builder(
@@ -206,7 +209,7 @@ public class MaidManagerScreen extends Screen {
                                     : "gui.maid_legion.only_favourites"));
                             rebuildRows();
                         })
-                .bounds(listRight - 314, 22, 86, 16).build());
+                .bounds(listRight - 256, 22, 86, 16).build());
 
         rebuildRows();
         ClientInput.requestRefresh();
