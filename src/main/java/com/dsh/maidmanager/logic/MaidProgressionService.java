@@ -219,6 +219,16 @@ public final class MaidProgressionService {
                 && storage.isAbilityEnabled(player.getUUID(), ability);
     }
 
+    /**
+     * Whether reviving should use the shrine route for this player.
+     *
+     * <p>Both revive routes exist at once; this is the switch between them. It is deliberately
+     * consulted server-side only - the client shows the matching tooltip, but never chooses.
+     */
+    public static boolean usesShrineRevive(ServerPlayer player) {
+        return isAbilityActive(player, GlobalUpgrade.SHRINE_REVIVE);
+    }
+
     /** Flips a toggleable ability's switch. Returns the new state, or false if not owned. */
     public static boolean toggleAbility(ServerPlayer player, GlobalUpgrade ability) {
         MaidProgressStorage storage = MaidProgressStorage.get(player.getServer());

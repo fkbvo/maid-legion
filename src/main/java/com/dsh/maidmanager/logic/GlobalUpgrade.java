@@ -33,7 +33,16 @@ public enum GlobalUpgrade {
      * While the owner is in creative flight, enrolled maids follow through the air instead of
      * running along the ground. Driven by {@link MaidFlightHandler}.
      */
-    FLIGHT("g_flight", 120, Kind.BEHAVIOR);
+    FLIGHT("g_flight", 120, Kind.BEHAVIOR),
+
+    /**
+     * Switches reviving onto the shrine route: three shrines and a channelled cast, no materials.
+     *
+     * <p>Appended last on purpose. Ability state travels as an array indexed by
+     * {@link #ordinal()}, so inserting anywhere earlier would silently re-point every existing
+     * save's abilities at the wrong entry.
+     */
+    SHRINE_REVIVE("g_shrine", 100, Kind.EVENT);
 
     /** How the ability takes effect, so the service knows what to wire up. */
     public enum Kind {
@@ -90,7 +99,7 @@ public enum GlobalUpgrade {
      * this later is a one-line change.
      */
     public boolean toggleable() {
-        return this == FLIGHT;
+        return this == FLIGHT || this == SHRINE_REVIVE;
     }
 
     public static GlobalUpgrade byId(String id) {

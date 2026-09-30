@@ -385,11 +385,14 @@ public class MaidManagerScreen extends Screen {
      * <p>A channelling revival shows its remaining time here rather than as a bare "fallen": the
      * wait is the whole point of that route, so it is what the player wants to see.
      */
-    private Component badgeLabel(MaidEntry entry) {
+    private Component badgeLabel(MaidEntry entry, boolean showRevive) {
         if (entry.castingRevive()) {
             long now = this.minecraft.level == null ? 0L : this.minecraft.level.getGameTime();
             int seconds = Math.round(entry.reviveCastRemaining(now) / 20.0F);
             return Component.translatable("gui.touhou_maid_legion.cast.remaining", seconds);
+        }
+        if (showRevive) {
+            return Component.translatable("gui.touhou_maid_legion.revive");
         }
         return Component.translatable(entry.state.translationKey());
     }
@@ -548,43 +551,33 @@ public class MaidManagerScreen extends Screen {
         // A fallen maid's badge carries both revive routes, split left/right while hovered. That
         // keeps the row layout unchanged - no extra column - and puts both prices where the
         // revive already lived, rather than in a second widget somewhere else on the row.
-        boolean splitBadge = revivable && !casting && badgeHovered;
+        boolean showRevive = revivable && !casting && badgeHovered;
+        // Which route the click will take is a bought, switchable ability, so the row only ever
+        // offers one revive button - it shows the price of whichever route is currently active.
+        boolean shrineRoute = showRevive && ClientPayloadHandlers.progression()
+                .isEnabled(com.dsh.maidmanager.logic.GlobalUpgrade.SHRINE_REVIVE);
         int badgeColor = switch (entry.state) {
             case PRESENT -> 0xFF2E7D32;
             case STORED -> 0xFF1565C0;
             case UNLOADED -> 0xFF6A1B9A;
             // Red-grey: visibly different from the three live states at a glance, without
             // competing with the health bar's red for attention.
-            case DEAD -> casting ? 0xFF7E57C2 : (splitBadge ? 0xFF2E7D32 : 0xFF8E2424);
+            case DEAD -> casting ? 0xFF7E57C2 : (showRevive ? 0xFF2E7D32 : 0xFF8E2424);
         };
+        graphics.fill(badgeX, y + 6, badgeX + BADGE_W, y + 18, badgeColor);
+        graphics.drawCenteredString(this.font, badgeLabel(entry, showRevive),
+                badgeX + BADGE_W / 2, y + 8, 0xFFFFFFFF);
 
-        if (splitBadge) {
-            int half = BADGE_W / 2;
-            graphics.fill(badgeX, y + 6, badgeX + half, y + 18, 0xFF2E7D32);
-            graphics.fill(badgeX + half + 1, y + 6, badgeX + BADGE_W, y + 18, 0xFF6A3FA0);
-            graphics.drawCenteredString(this.font,
-                    Component.translatable("gui.touhou_maid_legion.revive"),
-                    badgeX + half / 2, y + 8, 0xFFFFFFFF);
-            graphics.drawCenteredString(this.font,
-                    Component.translatable("gui.touhou_maid_legion.revive.shrine"),
-                    badgeX + half + 1 + half / 2, y + 8, 0xFFFFFFFF);
-        } else {
-            graphics.fill(badgeX, y + 6, badgeX + BADGE_W, y + 18, badgeColor);
-            graphics.drawCenteredString(this.font, badgeLabel(entry), badgeX + BADGE_W / 2, y + 8,
-                    0xFFFFFFFF);
-        }
-
-        if (splitBadge) {
-            // Both prices, before the click: one spends real materials, the other three shrines
-            // and a wait.
+        if (showRevive) {
+            // Say what it costs before the click, since both routes spend something real.
             List<Component> tip = new ArrayList<>();
             tip.add(Component.translatable("gui.touhou_maid_legion.revive.tooltip.title")
                     .withStyle(ChatFormatting.BOLD));
-            tip.add(Component.translatable("gui.touhou_maid_legion.revive.tooltip.materials"));
+            tip.add(shrineRoute
+                    ? Component.translatable("gui.touhou_maid_legion.revive.tooltip.shrine",
+                    com.dsh.maidmanager.logic.MaidManagerService.SHRINE_REVIVE_COST)
+                    : Component.translatable("gui.touhou_maid_legion.revive.tooltip.materials"));
             tip.add(Component.translatable("gui.touhou_maid_legion.revive.tooltip.click"));
-            tip.add(Component.empty());
-            tip.add(Component.translatable("gui.touhou_maid_legion.revive.shrine.tooltip",
-                    com.dsh.maidmanager.logic.MaidManagerService.SHRINE_REVIVE_COST));
             this.pendingTooltip = tip;
             this.pendingTooltipX = mouseX;
             this.pendingTooltipY = mouseY;
@@ -826,12 +819,8 @@ public class MaidManagerScreen extends Screen {
             return true;
         }
         if (row.entry.revivable() && mouseX >= badgeX && mouseX <= badgeX + BADGE_W) {
-            if (mouseX >= badgeX + BADGE_W / 2) {
-                // Right half: the shrine route, which costs shrines and makes her wait.
-                NetworkHandler.CHANNEL.sendToServer(
-                        new com.dsh.maidmanager.network.C2SReviveMaidPacket(row.entry.id, true));
-                return true;
-            }
+            // No route flag: the server consults the player's ability and decides. The client is
+            // not trusted to pick, since the two routes cost very different things.
             reviveOne(row.entry);
             return true;
         }
