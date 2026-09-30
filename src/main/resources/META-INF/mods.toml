@@ -1,7 +1,7 @@
 modLoader = "javafml"
 loaderVersion = "[46,)"
 license = "MIT"
-issueTrackerURL = "https://github.com/fkbvo/maid-legion/issues"
+issueTrackerURL = "https://github.com/fkbvo/touhou-maid-legion/issues"
 
 [[mods]]
 modId = "${mod_id}"

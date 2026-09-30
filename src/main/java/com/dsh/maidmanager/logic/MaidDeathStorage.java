@@ -30,7 +30,13 @@ import java.util.UUID;
  * revive cost stays enforceable.
  */
 public final class MaidDeathStorage extends SavedData {
-    private static final String DATA_ID = "maid_legion_dead_maids";
+    private static final String DATA_ID = "touhou_maid_legion_dead_maids";
+    /**
+     * The id this data was written under before the mod was renamed. Kept so an existing world
+     * can be migrated; without it every maid waiting to be revived would be lost, along with the
+     * inventory snapshot held in her record.
+     */
+    private static final String LEGACY_DATA_ID = "maid_legion_dead_maids";
     private static final String ROOT = "Players";
     private static final String MAID_ID = "MaidId";
     private static final String MAID_DATA = "MaidData";
@@ -51,9 +57,60 @@ public final class MaidDeathStorage extends SavedData {
     /** owner UUID -> (maid UUID -> record) */
     private final Map<UUID, Map<UUID, DeadMaid>> byOwner = new HashMap<>();
 
+    /**
+     * Fetches the store, adopting data written before the mod was renamed.
+     *
+     * <p>Adoption only happens when the live store is empty, so it is idempotent and cannot
+     * overwrite data written by the renamed build. The legacy file is left on disk so a rollback
+     * to an older build still works.
+     */
     public static MaidDeathStorage get(MinecraftServer server) {
-        return server.overworld().getDataStorage()
-                .computeIfAbsent(MaidDeathStorage::load, MaidDeathStorage::new, DATA_ID);
+        net.minecraft.world.level.storage.DimensionDataStorage data =
+                server.overworld().getDataStorage();
+        MaidDeathStorage live = data.computeIfAbsent(
+                MaidDeathStorage::load, MaidDeathStorage::new, DATA_ID);
+        MaidDeathStorage legacy = data.get(MaidDeathStorage::load, LEGACY_DATA_ID);
+        if (adoptIfEmpty(live, legacy)) {
+            live.setDirty();
+        }
+        return live;
+    }
+
+    /**
+     * Copies pre-rename data in, but only into an empty store.
+     *
+     * <p>Separated from {@link #get(MinecraftServer)} so the decision can be unit tested without
+     * a server.
+     */
+    public static boolean adoptIfEmpty(MaidDeathStorage live, MaidDeathStorage legacy) {
+        if (legacy == null || !live.isEmpty()) {
+            return false;
+        }
+        return live.adoptFrom(legacy);
+    }
+
+    public boolean isEmpty() {
+        return byOwner.isEmpty();
+    }
+
+    /**
+     * One-time copy of every captured death.
+     *
+     * <p>Each record's NBT is copied rather than shared: the snapshot is what the revive hands
+     * back to the maid, so the two instances must not alias the same tag.
+     */
+    public boolean adoptFrom(MaidDeathStorage legacy) {
+        if (legacy.isEmpty()) {
+            return false;
+        }
+        legacy.byOwner.forEach((owner, maids) -> {
+            Map<UUID, DeadMaid> copy = new LinkedHashMap<>();
+            maids.forEach((maidId, record) -> copy.put(maidId, new DeadMaid(
+                    record.id(), record.data().copy(), record.name(), record.diedAt(),
+                    record.deathCount(), record.withItems())));
+            byOwner.put(owner, copy);
+        });
+        return true;
     }
 
     public static MaidDeathStorage load(CompoundTag tag) {

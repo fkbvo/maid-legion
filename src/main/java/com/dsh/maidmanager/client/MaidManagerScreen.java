@@ -83,7 +83,7 @@ public class MaidManagerScreen extends Screen {
     private int pendingTooltipY;
 
     public MaidManagerScreen() {
-        super(Component.translatable("gui.maid_legion.title"));
+        super(Component.translatable("gui.touhou_maid_legion.title"));
     }
 
     /** Opens the screen and asks the server for a fresh snapshot. */
@@ -100,7 +100,7 @@ public class MaidManagerScreen extends Screen {
         this.listBottom = this.height - FOOTER_HEIGHT;
 
         this.searchBox = new EditBox(this.font, listLeft + 4, 22, 132, 16,
-                Component.translatable("gui.maid_legion.search"));
+                Component.translatable("gui.touhou_maid_legion.search"));
         this.searchBox.setMaxLength(48);
         this.searchBox.setResponder(text -> {
             this.filter = text.toLowerCase(Locale.ROOT);
@@ -133,49 +133,49 @@ public class MaidManagerScreen extends Screen {
             int row1 = widths[0] + gap + widths[1];
             int x = this.width / 2 - row1 / 2;
             this.openGuiButton = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.maid_legion.open_gui"),
+                            Component.translatable("gui.touhou_maid_legion.open_gui"),
                             b -> openSelectedMaidGui())
                     .bounds(x, row1Y, widths[0], 20).build());
             this.upgradeButton = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.maid_legion.upgrade"),
+                            Component.translatable("gui.touhou_maid_legion.upgrade"),
                             b -> openUpgradeScreen())
                     .bounds(x + widths[0] + gap, row1Y, widths[1], 20).build());
             int row2 = widths[2] + gap + widths[3] + gap + widths[4];
             x = this.width / 2 - row2 / 2;
             this.summonButton = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.maid_legion.summon"), b -> summonSelected())
+                            Component.translatable("gui.touhou_maid_legion.summon"), b -> summonSelected())
                     .bounds(x, row2Y, widths[2], 20).build());
             x += widths[2] + gap;
             this.storeButton = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.maid_legion.store"), b -> storeSelected())
+                            Component.translatable("gui.touhou_maid_legion.store"), b -> storeSelected())
                     .bounds(x, row2Y, widths[3], 20).build());
             x += widths[3] + gap;
             addRenderableWidget(Button.builder(
-                            Component.translatable("gui.maid_legion.refresh"),
+                            Component.translatable("gui.touhou_maid_legion.refresh"),
                             b -> ClientInput.requestRefresh())
                     .bounds(x, row2Y, widths[4], 20).build());
         } else {
             int x = this.width / 2 - total / 2;
             this.openGuiButton = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.maid_legion.open_gui"),
+                            Component.translatable("gui.touhou_maid_legion.open_gui"),
                             b -> openSelectedMaidGui())
                     .bounds(x, row2Y, widths[0], 20).build());
             x += widths[0] + gap;
             this.upgradeButton = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.maid_legion.upgrade"),
+                            Component.translatable("gui.touhou_maid_legion.upgrade"),
                             b -> openUpgradeScreen())
                     .bounds(x, row2Y, widths[1], 20).build());
             x += widths[1] + groupGap;
             this.summonButton = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.maid_legion.summon"), b -> summonSelected())
+                            Component.translatable("gui.touhou_maid_legion.summon"), b -> summonSelected())
                     .bounds(x, row2Y, widths[2], 20).build());
             x += widths[2] + gap;
             this.storeButton = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.maid_legion.store"), b -> storeSelected())
+                            Component.translatable("gui.touhou_maid_legion.store"), b -> storeSelected())
                     .bounds(x, row2Y, widths[3], 20).build());
             x += widths[3] + gap;
             addRenderableWidget(Button.builder(
-                            Component.translatable("gui.maid_legion.refresh"),
+                            Component.translatable("gui.touhou_maid_legion.refresh"),
                             b -> ClientInput.requestRefresh())
                     .bounds(x, row2Y, widths[4], 20).build());
         }
@@ -185,28 +185,28 @@ public class MaidManagerScreen extends Screen {
         // that has to stay greyed out whenever nothing dead is ticked.
 
         addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.select_all"), b -> selectAll(true))
+                        Component.translatable("gui.touhou_maid_legion.select_all"), b -> selectAll(true))
                 .bounds(listRight - 128, 22, 60, 16).build());
         addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.clear"), b -> selectAll(false))
+                        Component.translatable("gui.touhou_maid_legion.clear"), b -> selectAll(false))
                 .bounds(listRight - 62, 22, 60, 16).build());
 
         // A help button opening the full usage guide. The force-load prompt is only one part of
         // how the mod works, and a player who has forgotten the hotkeys or the states has
         // nowhere else to look them up in game.
         addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.help"),
+                        Component.translatable("gui.touhou_maid_legion.help"),
                         b -> net.minecraft.client.Minecraft.getInstance().setScreen(
                                 new HelpScreen(this)))
                 .bounds(listRight - 164, 22, 30, 16).build());
 
         // Toggle that narrows the list to starred maids only.
         this.favouritesButton = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.only_favourites"), b -> {
+                        Component.translatable("gui.touhou_maid_legion.only_favourites"), b -> {
                             favouritesOnly = !favouritesOnly;
                             b.setMessage(Component.translatable(favouritesOnly
-                                    ? "gui.maid_legion.only_favourites.on"
-                                    : "gui.maid_legion.only_favourites"));
+                                    ? "gui.touhou_maid_legion.only_favourites.on"
+                                    : "gui.touhou_maid_legion.only_favourites"));
                             rebuildRows();
                         })
                 .bounds(listRight - 256, 22, 86, 16).build());
@@ -427,7 +427,7 @@ public class MaidManagerScreen extends Screen {
 
         if (rows.isEmpty()) {
             graphics.drawCenteredString(this.font,
-                    Component.translatable("gui.maid_legion.empty"),
+                    Component.translatable("gui.touhou_maid_legion.empty"),
                     this.width / 2, listTop + 16, 0xFFA0A0A0);
         }
 
@@ -437,7 +437,7 @@ public class MaidManagerScreen extends Screen {
         // The selection counter sits in the footer band, *below* the list's bottom rule.
         // Drawing it above the rule made it overlap the last visible maid's name.
         graphics.drawString(this.font,
-                Component.translatable("gui.maid_legion.count", selectedIds().size(), rows.size()),
+                Component.translatable("gui.touhou_maid_legion.count", selectedIds().size(), rows.size()),
                 listLeft + 4, listBottom + 11, 0xFFC0C0C0, false);
 
         // Tooltips go last so they are always fully visible, never clipped by the scissor
@@ -522,17 +522,17 @@ public class MaidManagerScreen extends Screen {
         graphics.fill(badgeX, y + 6, badgeX + BADGE_W, y + 18, badgeColor);
         graphics.drawCenteredString(this.font,
                 Component.translatable(showRevive
-                        ? "gui.maid_legion.revive"
+                        ? "gui.touhou_maid_legion.revive"
                         : entry.state.translationKey()),
                 badgeX + BADGE_W / 2, y + 8, 0xFFFFFFFF);
 
         if (showRevive) {
             // Say what it costs before the click, since reviving spends real materials.
             List<Component> tip = new ArrayList<>();
-            tip.add(Component.translatable("gui.maid_legion.revive.tooltip.title")
+            tip.add(Component.translatable("gui.touhou_maid_legion.revive.tooltip.title")
                     .withStyle(ChatFormatting.BOLD));
-            tip.add(Component.translatable("gui.maid_legion.revive.tooltip.materials"));
-            tip.add(Component.translatable("gui.maid_legion.revive.tooltip.click"));
+            tip.add(Component.translatable("gui.touhou_maid_legion.revive.tooltip.materials"));
+            tip.add(Component.translatable("gui.touhou_maid_legion.revive.tooltip.click"));
             this.pendingTooltip = tip;
             this.pendingTooltipX = mouseX;
             this.pendingTooltipY = mouseY;
@@ -547,25 +547,25 @@ public class MaidManagerScreen extends Screen {
             graphics.fill(swX, y + 6, swX + SWITCH_W, y + 18, allowed ? swColor : 0xFF303030);
             // Draw a label, not just ON/OFF: a bare coloured box tells the player nothing.
             Component label = entry.forceLoad
-                    ? Component.translatable("gui.maid_legion.load.on")
-                    : Component.translatable("gui.maid_legion.load.off");
+                    ? Component.translatable("gui.touhou_maid_legion.load.on")
+                    : Component.translatable("gui.touhou_maid_legion.load.off");
             graphics.drawCenteredString(this.font, label, swX + SWITCH_W / 2, y + 9,
                     allowed ? 0xFFFFFFFF : 0xFF909090);
 
             if (swHovered) {
                 List<Component> tip = new ArrayList<>();
-                tip.add(Component.translatable("gui.maid_legion.load.tooltip.title")
+                tip.add(Component.translatable("gui.touhou_maid_legion.load.tooltip.title")
                         .withStyle(ChatFormatting.BOLD));
-                tip.add(Component.translatable("gui.maid_legion.load.tooltip.what"));
-                tip.add(Component.translatable("gui.maid_legion.load.tooltip.what2"));
-                tip.add(Component.translatable("gui.maid_legion.load.tooltip.state",
+                tip.add(Component.translatable("gui.touhou_maid_legion.load.tooltip.what"));
+                tip.add(Component.translatable("gui.touhou_maid_legion.load.tooltip.what2"));
+                tip.add(Component.translatable("gui.touhou_maid_legion.load.tooltip.state",
                         Component.translatable(entry.forceLoad
-                                ? "gui.maid_legion.load.on"
-                                : "gui.maid_legion.load.off")));
+                                ? "gui.touhou_maid_legion.load.on"
+                                : "gui.touhou_maid_legion.load.off")));
                 if (allowed) {
-                    tip.add(Component.translatable("gui.maid_legion.load.tooltip.click"));
+                    tip.add(Component.translatable("gui.touhou_maid_legion.load.tooltip.click"));
                 } else {
-                    tip.add(Component.translatable("gui.maid_legion.load.tooltip.disabled")
+                    tip.add(Component.translatable("gui.touhou_maid_legion.load.tooltip.disabled")
                             .withStyle(ChatFormatting.RED));
                 }
                 // Deferred: drawn last so no widget can paint over it. See render().
@@ -579,11 +579,11 @@ public class MaidManagerScreen extends Screen {
                     swX + SWITCH_W / 2, y + 9, 0xFF606060);
             if (hovered && mouseX >= swX && mouseX <= swX + SWITCH_W) {
                 List<Component> tip = new ArrayList<>();
-                tip.add(Component.translatable("gui.maid_legion.load.tooltip.title")
+                tip.add(Component.translatable("gui.touhou_maid_legion.load.tooltip.title")
                         .withStyle(ChatFormatting.BOLD));
                 tip.add(Component.translatable(entry.state == MaidState.DEAD
-                        ? "gui.maid_legion.load.tooltip.dead"
-                        : "gui.maid_legion.load.tooltip.stored"));
+                        ? "gui.touhou_maid_legion.load.tooltip.dead"
+                        : "gui.touhou_maid_legion.load.tooltip.stored"));
                 this.pendingTooltip = tip;
                 this.pendingTooltipX = mouseX;
                 this.pendingTooltipY = mouseY;
@@ -603,14 +603,14 @@ public class MaidManagerScreen extends Screen {
         // left edge and let it run backwards, matching how the rows look.
         int barX = listRight - BADGE_W - BAR_W - HP_GAP;
 
-        graphics.drawString(this.font, Component.translatable("gui.maid_legion.col.maid"),
+        graphics.drawString(this.font, Component.translatable("gui.touhou_maid_legion.col.maid"),
                 listLeft + 2 + STAR_W + 18, headerY, 0xFFB0B0B0, false);
-        Component hpHeader = Component.translatable("gui.maid_legion.col.health");
+        Component hpHeader = Component.translatable("gui.touhou_maid_legion.col.health");
         graphics.drawString(this.font, hpHeader, barX + BAR_W / 2 - this.font.width(hpHeader) / 2,
                 headerY, 0xFFB0B0B0, false);
-        graphics.drawCenteredString(this.font, Component.translatable("gui.maid_legion.col.load"),
+        graphics.drawCenteredString(this.font, Component.translatable("gui.touhou_maid_legion.col.load"),
                 swX + SWITCH_W / 2, headerY, 0xFFB0B0B0);
-        graphics.drawCenteredString(this.font, Component.translatable("gui.maid_legion.col.state"),
+        graphics.drawCenteredString(this.font, Component.translatable("gui.touhou_maid_legion.col.state"),
                 badgeX + BADGE_W / 2, headerY, 0xFFB0B0B0);
 
         // A hairline under the headers to separate them from the first row.
@@ -643,14 +643,14 @@ public class MaidManagerScreen extends Screen {
         return switch (entry.state) {
             case PRESENT -> Component.literal(shortDim(entry.dimension) + " "
                     + entry.pos.getX() + "," + entry.pos.getY() + "," + entry.pos.getZ());
-            case STORED -> Component.translatable("gui.maid_legion.sub.stored_at",
+            case STORED -> Component.translatable("gui.touhou_maid_legion.sub.stored_at",
                     ago(entry.storedAt), entry.shortId());
             case UNLOADED -> Component.literal(shortDim(entry.dimension) + " "
                     + entry.pos.getX() + "," + entry.pos.getZ()
                     + (entry.sameDimension ? "" : " (other dim)"));
             // Death count is the number the player actually needs here: it drives the revive
             // delay, and it is the only field that distinguishes one death from the next.
-            case DEAD -> Component.translatable("gui.maid_legion.sub.dead",
+            case DEAD -> Component.translatable("gui.touhou_maid_legion.sub.dead",
                     ago(entry.storedAt), entry.deathCount, entry.shortId());
         };
     }

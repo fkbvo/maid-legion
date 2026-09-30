@@ -89,7 +89,7 @@ public class MaidUpgradeScreen extends Screen {
     private Button tabGlobal;
 
     public MaidUpgradeScreen(Screen parent, MaidEntry maid, List<MaidEntry> entries) {
-        super(Component.translatable("gui.maid_legion.upgrade.title"));
+        super(Component.translatable("gui.touhou_maid_legion.upgrade.title"));
         this.parent = parent;
         this.maid = maid;
         this.entries = entries;
@@ -130,14 +130,14 @@ public class MaidUpgradeScreen extends Screen {
         int tabsY = this.height - 30;
         int tabW = 90;
         this.tabSingle = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.upgrade.tab_single"),
+                        Component.translatable("gui.touhou_maid_legion.upgrade.tab_single"),
                         b -> switchTab(Tab.SINGLE))
                 .bounds(this.width / 2 - tabW - 3, tabsY, tabW, 20).build());
         this.tabGlobal = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.upgrade.tab_global"),
+                        Component.translatable("gui.touhou_maid_legion.upgrade.tab_global"),
                         b -> switchTab(Tab.GLOBAL))
                 .bounds(this.width / 2 + 3, tabsY, tabW, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("gui.maid_legion.close"),
+        addRenderableWidget(Button.builder(Component.translatable("gui.touhou_maid_legion.close"),
                         b -> Minecraft.getInstance().setScreen(parent))
                 .bounds(this.width - 84, tabsY, 74, 20).build());
 
@@ -177,7 +177,7 @@ public class MaidUpgradeScreen extends Screen {
         for (MaidUpgrade upgrade : MaidUpgrade.values()) {
             final MaidUpgrade target = upgrade;
             Button button = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.maid_legion.upgrade.buy"),
+                            Component.translatable("gui.touhou_maid_legion.upgrade.buy"),
                             b -> buySingle(target))
                     .bounds(contentLeft + COL_BUTTON, 0, 60, 18).build());
             singleButtons.put(upgrade, button);
@@ -224,7 +224,7 @@ public class MaidUpgradeScreen extends Screen {
         for (GlobalUpgrade ability : GlobalUpgrade.values()) {
             final GlobalUpgrade target = ability;
             Button button = addRenderableWidget(Button.builder(
-                            Component.translatable("gui.maid_legion.upgrade.buy"),
+                            Component.translatable("gui.touhou_maid_legion.upgrade.buy"),
                             b -> buyGlobal(target))
                     .bounds(contentLeft + contentWidth - 96, y + 14, 90, 20).build());
             globalButtons.put(ability, button);
@@ -232,15 +232,15 @@ public class MaidUpgradeScreen extends Screen {
         }
         int tabsY = this.height - 30;
         addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.bank.deposit"),
+                        Component.translatable("gui.touhou_maid_legion.bank.deposit"),
                         b -> sendBank(C2SPowerBankPacket.Action.DEPOSIT))
                 .bounds(contentLeft + contentWidth - 320, GLOBAL_FUNDS_TOP + 8, 100, 18).build());
         addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.bank.withdraw"),
+                        Component.translatable("gui.touhou_maid_legion.bank.withdraw"),
                         b -> sendBank(C2SPowerBankPacket.Action.WITHDRAW))
                 .bounds(contentLeft + contentWidth - 214, GLOBAL_FUNDS_TOP + 8, 100, 18).build());
         addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.bank.auto"),
+                        Component.translatable("gui.touhou_maid_legion.bank.auto"),
                         b -> sendBank(C2SPowerBankPacket.Action.TOGGLE_AUTO))
                 .bounds(contentLeft + contentWidth - 320, GLOBAL_FUNDS_TOP + 28, 206, 18).build());
     }
@@ -283,8 +283,8 @@ public class MaidUpgradeScreen extends Screen {
                 boolean affordable = maid.experience >= upgrade.costFor(level);
                 // Three distinct reasons a button is dark, so the label says which one.
                 button.setMessage(Component.translatable(maxed
-                        ? "gui.maid_legion.upgrade.maxed"
-                        : "gui.maid_legion.upgrade.buy"));
+                        ? "gui.touhou_maid_legion.upgrade.maxed"
+                        : "gui.touhou_maid_legion.upgrade.buy"));
                 button.active = !maxed && affordable && maid.upgradable();
             }
         } else {
@@ -296,8 +296,8 @@ public class MaidUpgradeScreen extends Screen {
                 }
                 boolean owned = info.has(ability);
                 button.setMessage(Component.translatable(owned
-                        ? "gui.maid_legion.upgrade.owned"
-                        : "gui.maid_legion.upgrade.buy"));
+                        ? "gui.touhou_maid_legion.upgrade.owned"
+                        : "gui.touhou_maid_legion.upgrade.buy"));
                 button.active = !owned && info.bank() >= ability.powerCost();
             }
         }
@@ -308,18 +308,18 @@ public class MaidUpgradeScreen extends Screen {
         String name = entry.name.getString();
         graphics.drawString(this.font, name + "  #" + entry.shortId(), contentLeft, SUBTITLE_Y,
                 COLOUR_LABEL);
-        String expText = Component.translatable("gui.maid_legion.upgrade.experience",
+        String expText = Component.translatable("gui.touhou_maid_legion.upgrade.experience",
                 String.format("%,d", entry.experience)).getString();
         graphics.drawString(this.font, expText, contentLeft + contentWidth - this.font.width(expText),
                 SUBTITLE_Y, COLOUR_EXP);
         graphics.drawString(this.font,
-                Component.translatable("gui.maid_legion.upgrade.currency_maid").getString(),
+                Component.translatable("gui.touhou_maid_legion.upgrade.currency_maid").getString(),
                 contentLeft, SUBTITLE_Y + 10, COLOUR_FAINT);
 
         if (!entry.upgradable()) {
             // UNLOADED maids live in TLM's world data; we cannot read or write their experience.
             graphics.drawString(this.font,
-                    Component.translatable("gui.maid_legion.upgrade.unreachable").getString(),
+                    Component.translatable("gui.touhou_maid_legion.upgrade.unreachable").getString(),
                     contentLeft, listTop + 4, COLOUR_RED);
             return;
         }
@@ -353,7 +353,7 @@ public class MaidUpgradeScreen extends Screen {
             if (level < max) {
                 int cost = upgrade.costFor(level);
                 graphics.drawString(this.font,
-                        Component.translatable("gui.maid_legion.upgrade.next",
+                        Component.translatable("gui.touhou_maid_legion.upgrade.next",
                                 String.format("%,d", cost)).getString(),
                         contentLeft + COL_COST, y + 6,
                         entry.experience >= cost ? COLOUR_DIM : COLOUR_RED);
@@ -375,39 +375,39 @@ public class MaidUpgradeScreen extends Screen {
 
     private Component effectText(MaidUpgrade upgrade, int level) {
         if (level <= 0) {
-            return Component.translatable("gui.maid_legion.upgrade.none");
+            return Component.translatable("gui.touhou_maid_legion.upgrade.none");
         }
         String value = upgrade.displayAt(level);
         if (upgrade.unit() == MaidUpgrade.Unit.PERCENT) {
             return Component.literal("+" + value);
         }
-        return Component.translatable("gui.maid_legion.upgrade.effect_flat", value,
-                Component.translatable("gui.maid_legion.unit." + upgrade.id()));
+        return Component.translatable("gui.touhou_maid_legion.upgrade.effect_flat", value,
+                Component.translatable("gui.touhou_maid_legion.unit." + upgrade.id()));
     }
 
     private void renderGlobalTab(GuiGraphics graphics, int mouseX, int mouseY) {
         ProgressionInfo info = progression();
 
         graphics.drawCenteredString(this.font,
-                Component.translatable("gui.maid_legion.upgrade.currency_legion"),
+                Component.translatable("gui.touhou_maid_legion.upgrade.currency_legion"),
                 this.width / 2, SUBTITLE_Y, COLOUR_DIM);
 
         int fundsTop = GLOBAL_FUNDS_TOP;
         graphics.fill(contentLeft, fundsTop, contentLeft + contentWidth, fundsTop + GLOBAL_FUNDS_H,
                 0xA0000000);
         graphics.drawString(this.font,
-                Component.translatable("gui.maid_legion.bank.wallet").getString(),
+                Component.translatable("gui.touhou_maid_legion.bank.wallet").getString(),
                 contentLeft + 8, fundsTop + 6, COLOUR_DIM);
         graphics.drawString(this.font, String.format("%.2f P", info.wallet()),
                 contentLeft + 8, fundsTop + 20, COLOUR_GOLD);
         // Calling out the cap prevents "why did my points disappear" - TLM inlines 5.0 into its
         // own capability, so it genuinely cannot be raised.
         graphics.drawString(this.font,
-                Component.translatable("gui.maid_legion.bank.wallet_cap").getString(),
+                Component.translatable("gui.touhou_maid_legion.bank.wallet_cap").getString(),
                 contentLeft + 8, fundsTop + 34, COLOUR_FAINT);
 
         graphics.drawString(this.font,
-                Component.translatable("gui.maid_legion.bank.bank").getString(),
+                Component.translatable("gui.touhou_maid_legion.bank.bank").getString(),
                 contentLeft + 150, fundsTop + 6, COLOUR_DIM);
         graphics.drawString(this.font,
                 String.format("%.1f / %.1f P", info.bank(), info.bankCap()),
@@ -422,13 +422,13 @@ public class MaidUpgradeScreen extends Screen {
         }
 
         String autoKey = info.autoDeposit()
-                ? "gui.maid_legion.bank.auto_on"
-                : "gui.maid_legion.bank.auto_off";
+                ? "gui.touhou_maid_legion.bank.auto_on"
+                : "gui.touhou_maid_legion.bank.auto_off";
         // Rewrite the auto button's label with the live state.
         for (var widget : this.renderables) {
             if (widget instanceof Button button
                     && button.getMessage().getString()
-                    .equals(Component.translatable("gui.maid_legion.bank.auto").getString())) {
+                    .equals(Component.translatable("gui.touhou_maid_legion.bank.auto").getString())) {
                 button.setMessage(Component.translatable(autoKey));
             }
         }
@@ -447,8 +447,8 @@ public class MaidUpgradeScreen extends Screen {
                     Component.translatable(ability.descriptionKey()).getString(),
                     contentLeft + 150, y + 4, COLOUR_LABEL);
             Component status = Component.translatable(owned
-                    ? "gui.maid_legion.global.status_owned"
-                    : "gui.maid_legion.global.status_locked");
+                    ? "gui.touhou_maid_legion.global.status_owned"
+                    : "gui.touhou_maid_legion.global.status_locked");
             graphics.drawString(this.font, status.getString(), contentLeft + 150, y + 18,
                     owned ? COLOUR_GREEN : COLOUR_FAINT);
             String cost = ability.powerCost() + " P";
@@ -458,7 +458,7 @@ public class MaidUpgradeScreen extends Screen {
             y += GLOBAL_ROW_H;
         }
 
-        String scope = Component.translatable("gui.maid_legion.global.scope",
+        String scope = Component.translatable("gui.touhou_maid_legion.global.scope",
                 String.valueOf(entries.size())).getString();
         graphics.drawString(this.font, scope, contentLeft, y + 2, COLOUR_DIM);
     }

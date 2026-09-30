@@ -58,11 +58,11 @@ public enum GlobalUpgrade {
     }
 
     public String translationKey() {
-        return "gui.maid_legion.global." + id;
+        return "gui.touhou_maid_legion.global." + id;
     }
 
     public String descriptionKey() {
-        return "gui.maid_legion.global." + id + ".desc";
+        return "gui.touhou_maid_legion.global." + id + ".desc";
     }
 
     /** Abilities are bought outright; there is no level curve. */

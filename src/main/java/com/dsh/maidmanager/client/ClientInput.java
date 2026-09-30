@@ -30,11 +30,11 @@ import java.util.UUID;
  */
 public final class ClientInput {
     public static final KeyMapping OPEN_TERMINAL = new KeyMapping(
-            "key.maid_legion.open",
+            "key.touhou_maid_legion.open",
             KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_PERIOD,
-            "key.categories.maid_legion");
+            "key.categories.touhou_maid_legion");
 
     /**
      * Single hotkey for both summoning and recalling.
@@ -44,11 +44,11 @@ public final class ClientInput {
      * {@link #toggleSummonRecall()}.
      */
     public static final KeyMapping TOGGLE_ACTION = new KeyMapping(
-            "key.maid_legion.toggle",
+            "key.touhou_maid_legion.toggle",
             KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM,
             InputConstants.UNKNOWN.getValue(),
-            "key.categories.maid_legion");
+            "key.categories.touhou_maid_legion");
 
     private ClientInput() {
     }
@@ -111,7 +111,7 @@ public final class ClientInput {
     public static void toggleSummonRecall() {
         List<MaidEntry> scope = scopeOf();
         if (scope.isEmpty()) {
-            message("message.maid_legion.no_selection");
+            message("message.touhou_maid_legion.no_selection");
             return;
         }
 
@@ -124,7 +124,7 @@ public final class ClientInput {
                     new C2SMaidActionPacket(C2SMaidActionPacket.Action.SUMMON, plan.targets()));
             case STORE -> NetworkHandler.CHANNEL.sendToServer(
                     new C2SMaidActionPacket(C2SMaidActionPacket.Action.STORE, plan.targets()));
-            case NOTHING -> message("message.maid_legion.nothing_to_do");
+            case NOTHING -> message("message.touhou_maid_legion.nothing_to_do");
         }
     }
 

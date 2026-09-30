@@ -27,7 +27,12 @@ import java.util.UUID;
  * and is reachable from any dimension, matching how TLM stores its own maid records.
  */
 public final class MaidStorage extends SavedData {
-    private static final String DATA_ID = "maid_legion_stored_maids";
+    private static final String DATA_ID = "touhou_maid_legion_stored_maids";
+    /**
+     * The id this data was written under before the mod was renamed. Kept so an existing world
+     * can be migrated; without it every maid the player had stored would come back missing.
+     */
+    private static final String LEGACY_DATA_ID = "maid_legion_stored_maids";
     private static final String ROOT = "Players";
     private static final String ENTRIES = "Entries";
     private static final String MAID_ID = "MaidId";
@@ -38,9 +43,58 @@ public final class MaidStorage extends SavedData {
     /** owner UUID -> (maid UUID -> record) */
     private final Map<UUID, Map<UUID, StoredMaid>> byOwner = new HashMap<>();
 
+    /**
+     * Fetches the store, adopting data written before the mod was renamed.
+     *
+     * <p>Adoption only happens when the live store is empty, so it is idempotent and cannot
+     * overwrite data written by the renamed build. The legacy file is left on disk so a rollback
+     * to an older build still works.
+     */
     public static MaidStorage get(MinecraftServer server) {
-        return server.overworld().getDataStorage()
-                .computeIfAbsent(MaidStorage::load, MaidStorage::new, DATA_ID);
+        net.minecraft.world.level.storage.DimensionDataStorage data =
+                server.overworld().getDataStorage();
+        MaidStorage live = data.computeIfAbsent(MaidStorage::load, MaidStorage::new, DATA_ID);
+        MaidStorage legacy = data.get(MaidStorage::load, LEGACY_DATA_ID);
+        if (adoptIfEmpty(live, legacy)) {
+            live.setDirty();
+        }
+        return live;
+    }
+
+    /**
+     * Copies pre-rename data in, but only into an empty store.
+     *
+     * <p>Separated from {@link #get(MinecraftServer)} so the decision can be unit tested without
+     * a server.
+     */
+    public static boolean adoptIfEmpty(MaidStorage live, MaidStorage legacy) {
+        if (legacy == null || !live.isEmpty()) {
+            return false;
+        }
+        return live.adoptFrom(legacy);
+    }
+
+    public boolean isEmpty() {
+        return byOwner.isEmpty();
+    }
+
+    /**
+     * One-time copy of every stored maid.
+     *
+     * <p>Each record's NBT is copied rather than shared, so the legacy instance cannot be mutated
+     * through the live one.
+     */
+    public boolean adoptFrom(MaidStorage legacy) {
+        if (legacy.isEmpty()) {
+            return false;
+        }
+        legacy.byOwner.forEach((owner, maids) -> {
+            Map<UUID, StoredMaid> copy = new LinkedHashMap<>();
+            maids.forEach((maidId, record) -> copy.put(maidId, new StoredMaid(
+                    record.id(), record.data().copy(), record.name(), record.storedAt())));
+            byOwner.put(owner, copy);
+        });
+        return true;
     }
 
     public static MaidStorage load(CompoundTag tag) {

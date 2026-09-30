@@ -21,7 +21,7 @@ public class S2CActionResultPacket {
     }
 
     public Component describe() {
-        String key = "message.maid_legion.result." + action.name().toLowerCase(java.util.Locale.ROOT);
+        String key = "message.touhou_maid_legion.result." + action.name().toLowerCase(java.util.Locale.ROOT);
         return Component.translatable(key, success, failed);
     }
 

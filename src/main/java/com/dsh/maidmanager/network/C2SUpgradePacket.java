@@ -52,21 +52,21 @@ public class C2SUpgradePacket {
                 // Every refusal says what went wrong; a silent no-op reads as a broken button.
                 switch (result) {
                     case NOT_ENOUGH_EXP -> sender.displayClientMessage(
-                            Component.translatable("message.maid_legion.upgrade_no_exp"), true);
+                            Component.translatable("message.touhou_maid_legion.upgrade_no_exp"), true);
                     case NOT_ENOUGH_POWER -> sender.displayClientMessage(
-                            Component.translatable("message.maid_legion.upgrade_no_power"), true);
+                            Component.translatable("message.touhou_maid_legion.upgrade_no_power"), true);
                     case MAX_LEVEL -> sender.displayClientMessage(
-                            Component.translatable("message.maid_legion.upgrade_maxed"), true);
+                            Component.translatable("message.touhou_maid_legion.upgrade_maxed"), true);
                     case UNREACHABLE -> sender.displayClientMessage(
-                            Component.translatable("message.maid_legion.upgrade_unreachable"), true);
+                            Component.translatable("message.touhou_maid_legion.upgrade_unreachable"), true);
                     case DISABLED -> sender.displayClientMessage(
-                            Component.translatable("message.maid_legion.upgrade_disabled"), true);
+                            Component.translatable("message.touhou_maid_legion.upgrade_disabled"), true);
                     case UNKNOWN_UPGRADE -> sender.displayClientMessage(
-                            Component.translatable("message.maid_legion.upgrade_unknown"), true);
+                            Component.translatable("message.touhou_maid_legion.upgrade_unknown"), true);
                     case NOT_OWNER, NOT_ENROLLED -> sender.displayClientMessage(
-                            Component.translatable("message.maid_legion.not_enrolled"), true);
+                            Component.translatable("message.touhou_maid_legion.not_enrolled"), true);
                     case OK -> sender.displayClientMessage(
-                            Component.translatable("message.maid_legion.upgrade_ok"), true);
+                            Component.translatable("message.touhou_maid_legion.upgrade_ok"), true);
                 }
                 C2SMaidActionPacket.refresh(sender);
             });

@@ -25,44 +25,44 @@ public class HelpScreen extends Screen {
     /** Each page is a title key followed by its body lines. */
     private static final String[][] PAGES = {
             {
-                    "gui.maid_legion.help.p1.title",
-                    "gui.maid_legion.help.p1.1",
-                    "gui.maid_legion.help.p1.2",
-                    "gui.maid_legion.help.p1.3",
+                    "gui.touhou_maid_legion.help.p1.title",
+                    "gui.touhou_maid_legion.help.p1.1",
+                    "gui.touhou_maid_legion.help.p1.2",
+                    "gui.touhou_maid_legion.help.p1.3",
             },
             {
-                    "gui.maid_legion.help.p2.title",
-                    "gui.maid_legion.help.p2.1",
-                    "gui.maid_legion.help.p2.2",
-                    "gui.maid_legion.help.p2.3",
-                    "gui.maid_legion.help.p2.4",
+                    "gui.touhou_maid_legion.help.p2.title",
+                    "gui.touhou_maid_legion.help.p2.1",
+                    "gui.touhou_maid_legion.help.p2.2",
+                    "gui.touhou_maid_legion.help.p2.3",
+                    "gui.touhou_maid_legion.help.p2.4",
             },
             {
-                    "gui.maid_legion.help.p3.title",
-                    "gui.maid_legion.help.p3.1",
-                    "gui.maid_legion.help.p3.2",
-                    "gui.maid_legion.help.p3.3",
-                    "gui.maid_legion.help.p3.4",
-                    "gui.maid_legion.help.p3.5",
+                    "gui.touhou_maid_legion.help.p3.title",
+                    "gui.touhou_maid_legion.help.p3.1",
+                    "gui.touhou_maid_legion.help.p3.2",
+                    "gui.touhou_maid_legion.help.p3.3",
+                    "gui.touhou_maid_legion.help.p3.4",
+                    "gui.touhou_maid_legion.help.p3.5",
             },
             {
-                    "gui.maid_legion.help.p4.title",
-                    "gui.maid_legion.help.p4.1",
-                    "gui.maid_legion.help.p4.2",
-                    "gui.maid_legion.help.p4.3",
+                    "gui.touhou_maid_legion.help.p4.title",
+                    "gui.touhou_maid_legion.help.p4.1",
+                    "gui.touhou_maid_legion.help.p4.2",
+                    "gui.touhou_maid_legion.help.p4.3",
             },
             {
-                    "gui.maid_legion.help.p5.title",
-                    "gui.maid_legion.help.p5.1",
-                    "gui.maid_legion.help.p5.2",
-                    "gui.maid_legion.help.p5.3",
-                    "gui.maid_legion.help.p5.4",
+                    "gui.touhou_maid_legion.help.p5.title",
+                    "gui.touhou_maid_legion.help.p5.1",
+                    "gui.touhou_maid_legion.help.p5.2",
+                    "gui.touhou_maid_legion.help.p5.3",
+                    "gui.touhou_maid_legion.help.p5.4",
             },
             {
-                    "gui.maid_legion.help.p6.title",
-                    "gui.maid_legion.help.p6.1",
-                    "gui.maid_legion.help.p6.2",
-                    "gui.maid_legion.help.p6.3",
+                    "gui.touhou_maid_legion.help.p6.title",
+                    "gui.touhou_maid_legion.help.p6.1",
+                    "gui.touhou_maid_legion.help.p6.2",
+                    "gui.touhou_maid_legion.help.p6.3",
             },
     };
 
@@ -74,7 +74,7 @@ public class HelpScreen extends Screen {
     private Button nextButton;
 
     public HelpScreen(Screen parent) {
-        super(Component.translatable("gui.maid_legion.help.title"));
+        super(Component.translatable("gui.touhou_maid_legion.help.title"));
         this.parent = parent;
     }
 
@@ -83,12 +83,12 @@ public class HelpScreen extends Screen {
         int y = this.height - 28;
         int w = 70;
         this.prevButton = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.help.prev"), b -> turn(-1))
+                        Component.translatable("gui.touhou_maid_legion.help.prev"), b -> turn(-1))
                 .bounds(this.width / 2 - w - 34, y, w, 20).build());
         this.nextButton = addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.help.next"), b -> turn(1))
+                        Component.translatable("gui.touhou_maid_legion.help.next"), b -> turn(1))
                 .bounds(this.width / 2 + 34, y, w, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("gui.maid_legion.close"),
+        addRenderableWidget(Button.builder(Component.translatable("gui.touhou_maid_legion.close"),
                         b -> Minecraft.getInstance().setScreen(parent))
                 .bounds(this.width / 2 - 34, y, 68, 20).build());
         refreshButtons();
@@ -112,7 +112,7 @@ public class HelpScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 12, 0xFFFFFF);
-        String pageLabel = Component.translatable("gui.maid_legion.help.page",
+        String pageLabel = Component.translatable("gui.touhou_maid_legion.help.page",
                 String.valueOf(page + 1), String.valueOf(PAGES.length)).getString();
         graphics.drawCenteredString(this.font, pageLabel, this.width / 2, 26, 0xA0A0A0);
 

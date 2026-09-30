@@ -22,7 +22,7 @@ public class HeavyLoadWarningScreen extends Screen {
 
     /** Shown before the player turns the switch on for the first time. */
     public HeavyLoadWarningScreen(Screen parent, Runnable onConfirm) {
-        super(Component.translatable("gui.maid_legion.warning.title"));
+        super(Component.translatable("gui.touhou_maid_legion.warning.title"));
         this.parent = parent;
         this.onConfirm = onConfirm;
     }
@@ -30,13 +30,13 @@ public class HeavyLoadWarningScreen extends Screen {
     @Override
     protected void init() {
         int y = this.height / 2 + 30;
-        addRenderableWidget(Button.builder(Component.translatable("gui.maid_legion.warning.confirm"),
+        addRenderableWidget(Button.builder(Component.translatable("gui.touhou_maid_legion.warning.confirm"),
                 b -> {
                     onConfirm.run();
                     net.minecraft.client.Minecraft.getInstance().setScreen(parent);
                 }).bounds(this.width / 2 - 104, y, 100, 20).build());
         addRenderableWidget(Button.builder(
-                        Component.translatable("gui.maid_legion.warning.cancel"), b ->
+                        Component.translatable("gui.touhou_maid_legion.warning.cancel"), b ->
                         net.minecraft.client.Minecraft.getInstance().setScreen(parent))
                 .bounds(this.width / 2 + 4, y, 100, 20).build());
     }
@@ -47,11 +47,11 @@ public class HeavyLoadWarningScreen extends Screen {
         graphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 60, 0xFFFFCC00);
 
         Component[] lines = new Component[]{
-                Component.translatable("gui.maid_legion.warning.line1"),
-                Component.translatable("gui.maid_legion.warning.line2"),
+                Component.translatable("gui.touhou_maid_legion.warning.line1"),
+                Component.translatable("gui.touhou_maid_legion.warning.line2"),
                 Component.empty(),
-                Component.translatable("gui.maid_legion.warning.line3"),
-                Component.translatable("gui.maid_legion.warning.line4"),
+                Component.translatable("gui.touhou_maid_legion.warning.line3"),
+                Component.translatable("gui.touhou_maid_legion.warning.line4"),
         };
         int y = this.height / 2 - 36;
         for (Component line : lines) {

@@ -80,11 +80,11 @@ public enum MaidUpgrade {
     }
 
     public String translationKey() {
-        return "gui.maid_legion.upgrade." + id;
+        return "gui.touhou_maid_legion.upgrade." + id;
     }
 
     public String descriptionKey() {
-        return "gui.maid_legion.upgrade." + id + ".desc";
+        return "gui.touhou_maid_legion.upgrade." + id + ".desc";
     }
 
     public int maxLevel() {

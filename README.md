@@ -25,6 +25,17 @@
 
 ## 更新日志
 
+### 1.2.2
+
+- **模组改名：`maid_legion` → `touhou_maid_legion`。** 这样一看就知道是《车万女仆》的附属模组。
+  - **jar 名变了**：现在叫 `touhou_maid_legion-1.2.2-forge+mc1.20.1.jar`
+  - ⚠️ **升级前请手动删掉旧的 `maid_legion-*.jar`**——文件名不同，两个版本会同时加载
+  - ⚠️ 旧的配置文件 `config/maid_legion-common.toml` 不再被读取，会重新生成一份新的（默认值合理，但如果你改过配置需要重新改）
+  - ⚠️ 两个按键的**绑定会重置**（终端键默认仍是 `.`，一键召唤键默认仍未绑定）
+- **新增：存档数据自动迁移。** 四个数据文件的内部 id 也跟着改了名，所以本版会在首次加载时**自动把旧数据接管过来**，你的军团名单、已收起女仆（含她们的整套装备）、阵亡记录、强化等级、P 点仓库余额**都会保留**。
+  - 迁移**只在新区为空时**发生，因此**幂等**，也永远不会覆盖新版本已经写好的数据
+  - **旧数据文件保留在原处**：万一要回滚到旧版本，一切照旧可用
+
 ### 1.2.1
 
 - **修复：顶部工具栏「★只看收藏」与「?」之间裂开一道 68 像素的空洞。** 1.2.0 删掉「反选」后把「?」往右挪了，却忘了同时把「★只看收藏」也挪过去。
@@ -401,7 +412,7 @@ TLM 自己有一个机制：**区块卸载前**，如果女仆是同维度、且
 
 1. 安装 **Minecraft 1.20 或 1.20.1**，以及对应的 **Forge 47.x**
 2. 安装 **车万女仆（Touhou Little Maid）1.5.0+** Forge 版（`touhou_little_maid`）
-3. 下载 **[`maid_legion-1.2.1-forge+mc1.20.1.jar`](https://github.com/fkbvo/maid-legion/releases/download/v1.2.1%2Bmc1.20.1/maid_legion-1.2.1-forge%2Bmc1.20.1.jar)**，放进 `mods/`
+3. 下载 **[`touhou_maid_legion-1.2.2-forge+mc1.20.1.jar`](https://github.com/fkbvo/maid-legion/releases/download/v1.2.2%2Bmc1.20.1/touhou_maid_legion-1.2.2-forge%2Bmc1.20.1.jar)**，放进 `mods/`
 
 > 全部版本见 **[Releases](https://github.com/fkbvo/maid-legion/releases)**。这是 1.20 / 1.20.1（Forge）的构建；
 > 1.21.1（NeoForge）请到 Releases 里找另一个。
@@ -412,7 +423,7 @@ TLM 自己有一个机制：**区块卸载前**，如果女仆是同维度、且
 
 ## 配置
 
-`config/maid_legion-common.toml`
+`config/touhou_maid_legion-common.toml`
 
 | 项 | 默认 | 说明 |
 | --- | --- | --- |
@@ -439,7 +450,7 @@ gradlew.bat build
 gradlew.bat runClient
 ```
 
-产物：`build/libs/maid_legion-1.2.1-forge+mc1.20.1.jar`
+产物：`build/libs/touhou_maid_legion-1.2.2-forge+mc1.20.1.jar`
 
 文件名格式为 `<模组id>-<版本>-<加载器>+mc<MC版本>`，与车万女仆官方的
 `touhoulittlemaid-1.5.3-forge+mc1.20.1.jar` 保持一致的风格。

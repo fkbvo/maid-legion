@@ -22,7 +22,7 @@ import org.slf4j.Logger;
  */
 @Mod(MaidManagerMod.MOD_ID)
 public final class MaidManagerMod {
-    public static final String MOD_ID = "maid_legion";
+    public static final String MOD_ID = "touhou_maid_legion";
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public MaidManagerMod() {
