@@ -38,6 +38,19 @@ public final class MaidProgressStorage extends SavedData {
     private static final String GLOBAL_LEVELS = "GlobalLevels";
     private static final String BANKED_POWER = "BankedPower";
     private static final String AUTO_DEPOSIT_OFF = "AutoDepositOff";
+    private static final String DISABLED_ABILITIES = "DisabledAbilities";
+    private static final String DEATH_HEAT = "DeathHeat";
+    private static final String ACTIVE_CASTS = "ActiveCasts";
+    private static final String BOUND_LAMPS = "BoundLamps";
+
+    // Nested keys for the records below.
+    private static final String HEAT = "Heat";
+    private static final String HEAT_AT = "At";
+    private static final String CAST_OWNER = "Owner";
+    private static final String CAST_ENDS_AT = "EndsAt";
+    private static final String CAST_TOTAL = "Total";
+    private static final String LAMP_DIM = "Dim";
+    private static final String LAMP_POS = "Pos";
 
     /** maid UUID -> (upgrade id -> level) */
     private final Map<UUID, Map<String, Integer>> maidLevels = new HashMap<>();
@@ -47,6 +60,36 @@ public final class MaidProgressStorage extends SavedData {
     private final Map<UUID, Float> bankedPower = new HashMap<>();
     /** Owners who switched auto-deposit off; absence means on. */
     private final Set<UUID> autoDepositOff = new HashSet<>();
+    /**
+     * Bought abilities the player has switched off, per owner.
+     *
+     * <p>Owning an ability and having it active are separate things: this holds the distinction so
+     * a player can park an ability without losing the purchase.
+     */
+    private final Map<UUID, Set<String>> disabledAbilities = new HashMap<>();
+    /** maid UUID -> how recently she died. Drives the shrine revival cast time. */
+    private final Map<UUID, DeathHeat> deathHeat = new HashMap<>();
+    /**
+     * Shrine revivals in progress, keyed by maid.
+     *
+     * <p>Persisted rather than kept in memory: the three shrines are consumed up front, so a
+     * restart that forgot the cast would silently eat them.
+     */
+    private final Map<UUID, ActiveCast> activeCasts = new HashMap<>();
+    /** owner UUID -> the shrine lamp they bound with a gohei. */
+    private final Map<UUID, BoundLamp> boundLamps = new HashMap<>();
+
+    /** Recent deaths, cooled on read. */
+    public record DeathHeat(int heat, long at) {
+    }
+
+    /** A shrine revival in progress. {@code endsAt} is an overworld game time. */
+    public record ActiveCast(UUID owner, long endsAt, int totalTicks) {
+    }
+
+    /** A shrine lamp bound with a gohei: dimension id plus packed block position. */
+    public record BoundLamp(String dimension, long pos) {
+    }
 
     /**
      * Fetches the store, adopting data written before the mod was renamed.
@@ -88,7 +131,8 @@ public final class MaidProgressStorage extends SavedData {
 
     public boolean isEmpty() {
         return maidLevels.isEmpty() && globalLevels.isEmpty() && bankedPower.isEmpty()
-                && autoDepositOff.isEmpty();
+                && autoDepositOff.isEmpty() && disabledAbilities.isEmpty()
+                && deathHeat.isEmpty() && activeCasts.isEmpty() && boundLamps.isEmpty();
     }
 
     /** One-time copy of every level, balance and opt-out, into fresh collections. */
@@ -100,6 +144,10 @@ public final class MaidProgressStorage extends SavedData {
         legacy.globalLevels.forEach((id, levels) -> globalLevels.put(id, new HashMap<>(levels)));
         legacy.bankedPower.forEach(bankedPower::put);
         autoDepositOff.addAll(legacy.autoDepositOff);
+        legacy.disabledAbilities.forEach((owner, ids) -> disabledAbilities.put(owner, new HashSet<>(ids)));
+        legacy.deathHeat.forEach(deathHeat::put);
+        legacy.activeCasts.forEach(activeCasts::put);
+        legacy.boundLamps.forEach(boundLamps::put);
         return true;
     }
 
@@ -131,6 +179,72 @@ public final class MaidProgressStorage extends SavedData {
             int[] raw = off.getIntArray(i);
             if (raw.length == 4) {
                 storage.autoDepositOff.add(toUuid(raw));
+            }
+        }
+
+        CompoundTag disabled = tag.getCompound(DISABLED_ABILITIES);
+        for (String key : disabled.getAllKeys()) {
+            UUID owner = parse(key);
+            if (owner == null) {
+                continue;
+            }
+            Set<String> ids = new HashSet<>();
+            ListTag list = disabled.getList(key, Tag.TAG_STRING);
+            for (int i = 0; i < list.size(); i++) {
+                String id = list.getString(i);
+                // Drop ids this build no longer knows, so a save from a newer build still loads.
+                if (GlobalUpgrade.byId(id) != null) {
+                    ids.add(id);
+                }
+            }
+            if (!ids.isEmpty()) {
+                storage.disabledAbilities.put(owner, ids);
+            }
+        }
+
+        CompoundTag heat = tag.getCompound(DEATH_HEAT);
+        for (String key : heat.getAllKeys()) {
+            UUID maidId = parse(key);
+            if (maidId == null) {
+                continue;
+            }
+            CompoundTag entry = heat.getCompound(key);
+            int value = entry.getInt(HEAT);
+            if (value > 0) {
+                storage.deathHeat.put(maidId, new DeathHeat(value, entry.getLong(HEAT_AT)));
+            }
+        }
+
+        CompoundTag casts = tag.getCompound(ACTIVE_CASTS);
+        for (String key : casts.getAllKeys()) {
+            UUID maidId = parse(key);
+            if (maidId == null) {
+                continue;
+            }
+            CompoundTag entry = casts.getCompound(key);
+            UUID owner = parse(entry.getString(CAST_OWNER));
+            if (owner == null) {
+                // Without an owner the cast could never be completed or refunded, so it is
+                // dropped rather than left dangling forever.
+                continue;
+            }
+            int total = entry.getInt(CAST_TOTAL);
+            if (total > 0) {
+                storage.activeCasts.put(maidId,
+                        new ActiveCast(owner, entry.getLong(CAST_ENDS_AT), total));
+            }
+        }
+
+        CompoundTag lamps = tag.getCompound(BOUND_LAMPS);
+        for (String key : lamps.getAllKeys()) {
+            UUID owner = parse(key);
+            if (owner == null) {
+                continue;
+            }
+            CompoundTag entry = lamps.getCompound(key);
+            String dim = entry.getString(LAMP_DIM);
+            if (!dim.isEmpty()) {
+                storage.boundLamps.put(owner, new BoundLamp(dim, entry.getLong(LAMP_POS)));
             }
         }
         return storage;
@@ -174,6 +288,45 @@ public final class MaidProgressStorage extends SavedData {
         ListTag off = new ListTag();
         autoDepositOff.forEach(owner -> off.add(new net.minecraft.nbt.IntArrayTag(fromUuid(owner))));
         tag.put(AUTO_DEPOSIT_OFF, off);
+
+        CompoundTag disabled = new CompoundTag();
+        disabledAbilities.forEach((owner, ids) -> {
+            ListTag list = new ListTag();
+            // Sorted so repeated saves of the same state produce the same file.
+            ids.stream().sorted().forEach(id -> list.add(net.minecraft.nbt.StringTag.valueOf(id)));
+            if (!list.isEmpty()) {
+                disabled.put(owner.toString(), list);
+            }
+        });
+        tag.put(DISABLED_ABILITIES, disabled);
+
+        CompoundTag heat = new CompoundTag();
+        deathHeat.forEach((maidId, record) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putInt(HEAT, record.heat());
+            entry.putLong(HEAT_AT, record.at());
+            heat.put(maidId.toString(), entry);
+        });
+        tag.put(DEATH_HEAT, heat);
+
+        CompoundTag casts = new CompoundTag();
+        activeCasts.forEach((maidId, cast) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putString(CAST_OWNER, cast.owner().toString());
+            entry.putLong(CAST_ENDS_AT, cast.endsAt());
+            entry.putInt(CAST_TOTAL, cast.totalTicks());
+            casts.put(maidId.toString(), entry);
+        });
+        tag.put(ACTIVE_CASTS, casts);
+
+        CompoundTag lamps = new CompoundTag();
+        boundLamps.forEach((owner, lamp) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putString(LAMP_DIM, lamp.dimension());
+            entry.putLong(LAMP_POS, lamp.pos());
+            lamps.put(owner.toString(), entry);
+        });
+        tag.put(BOUND_LAMPS, lamps);
         return tag;
     }
 
@@ -319,6 +472,108 @@ public final class MaidProgressStorage extends SavedData {
 
     public void setAutoDepositEnabled(UUID owner, boolean enabled) {
         if (enabled ? autoDepositOff.remove(owner) : autoDepositOff.add(owner)) {
+            setDirty();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Ability on/off switches
+    // ------------------------------------------------------------------
+
+    /**
+     * Owning an ability and having it active are separate: this reports the switch.
+     *
+     * <p>Defaults to on, so a purchase does something the moment it is made.
+     */
+    public boolean isAbilityEnabled(UUID owner, GlobalUpgrade ability) {
+        Set<String> ids = disabledAbilities.get(owner);
+        return ids == null || !ids.contains(ability.id());
+    }
+
+    public void setAbilityEnabled(UUID owner, GlobalUpgrade ability, boolean enabled) {
+        Set<String> ids = disabledAbilities.get(owner);
+        if (enabled) {
+            if (ids != null && ids.remove(ability.id())) {
+                if (ids.isEmpty()) {
+                    disabledAbilities.remove(owner);
+                }
+                setDirty();
+            }
+            return;
+        }
+        disabledAbilities.computeIfAbsent(owner, k -> new HashSet<>()).add(ability.id());
+        setDirty();
+    }
+
+    // ------------------------------------------------------------------
+    // Recent-death heat
+    // ------------------------------------------------------------------
+
+    /** How recently this maid died, or null when she has no recorded heat. */
+    public DeathHeat deathHeat(UUID maidId) {
+        return deathHeat.get(maidId);
+    }
+
+    /**
+     * Records one more death at {@code now}, cooling whatever heat was already there.
+     *
+     * <p>Must be called exactly once per death: TLM runs its tombstone path twice, so the caller
+     * guards on its own "already recorded" check.
+     */
+    public void recordDeathHeat(UUID maidId, long now) {
+        DeathHeat previous = deathHeat.get(maidId);
+        int stored = previous == null ? 0 : previous.heat();
+        long at = previous == null ? now : previous.at();
+        deathHeat.put(maidId, new DeathHeat(ReviveCast.heatAfterDeath(stored, at, now), now));
+        setDirty();
+    }
+
+    /** Clears the heat entirely, for an admin reset. */
+    public void clearDeathHeat(UUID maidId) {
+        if (deathHeat.remove(maidId) != null) {
+            setDirty();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Shrine revivals in progress
+    // ------------------------------------------------------------------
+
+    public ActiveCast activeCast(UUID maidId) {
+        return activeCasts.get(maidId);
+    }
+
+    /** Every cast in progress, for the once-a-tick completion sweep. */
+    public Map<UUID, ActiveCast> activeCasts() {
+        return Map.copyOf(activeCasts);
+    }
+
+    public void setActiveCast(UUID maidId, ActiveCast cast) {
+        activeCasts.put(maidId, cast);
+        setDirty();
+    }
+
+    public void clearActiveCast(UUID maidId) {
+        if (activeCasts.remove(maidId) != null) {
+            setDirty();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Bound shrine lamps
+    // ------------------------------------------------------------------
+
+    public BoundLamp boundLamp(UUID owner) {
+        return boundLamps.get(owner);
+    }
+
+    public void setBoundLamp(UUID owner, BoundLamp lamp) {
+        boundLamps.put(owner, lamp);
+        setDirty();
+    }
+
+    public void clearBoundLamp(UUID owner) {
+        if (boundLamps.remove(owner) != null) {
             setDirty();
         }
     }

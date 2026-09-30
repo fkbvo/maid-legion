@@ -82,7 +82,7 @@ public final class MaidFlightHandler {
         if (!MaidRegistry.get(owner.getServer()).isEnrolled(owner.getUUID(), maid.getUUID())) {
             return false;
         }
-        if (!MaidProgressionService.hasAbility(owner, GlobalUpgrade.FLIGHT)) {
+        if (!MaidProgressionService.isAbilityActive(owner, GlobalUpgrade.FLIGHT)) {
             return false;
         }
         // mayfly is true for creative and spectator flight; onGround false means he is airborne.

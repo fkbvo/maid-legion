@@ -6,6 +6,7 @@ import com.github.tartaricacid.touhoulittlemaid.capability.PowerCapability;
 import com.github.tartaricacid.touhoulittlemaid.capability.PowerCapabilityProvider;
 import com.github.tartaricacid.touhoulittlemaid.entity.favorability.Type;
 import com.github.tartaricacid.touhoulittlemaid.entity.passive.EntityMaid;
+import com.github.tartaricacid.touhoulittlemaid.init.InitItems;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -201,9 +202,104 @@ public final class MaidProgressionService {
         }
     }
 
-    /** True when the player's legion has a given ability. */
+    /** True when the player has bought a given ability, whether or not it is switched on. */
     public static boolean hasAbility(ServerPlayer player, GlobalUpgrade ability) {
         return MaidProgressStorage.get(player.getServer()).hasGlobal(player.getUUID(), ability);
+    }
+
+    /**
+     * True when an ability is bought <em>and</em> switched on.
+     *
+     * <p>Every behavioural check goes through this rather than {@link #hasAbility}: owning an
+     * ability the player has parked must do nothing at all.
+     */
+    public static boolean isAbilityActive(ServerPlayer player, GlobalUpgrade ability) {
+        MaidProgressStorage storage = MaidProgressStorage.get(player.getServer());
+        return storage.hasGlobal(player.getUUID(), ability)
+                && storage.isAbilityEnabled(player.getUUID(), ability);
+    }
+
+    /** Flips a toggleable ability's switch. Returns the new state, or false if not owned. */
+    public static boolean toggleAbility(ServerPlayer player, GlobalUpgrade ability) {
+        MaidProgressStorage storage = MaidProgressStorage.get(player.getServer());
+        if (!storage.hasGlobal(player.getUUID(), ability) || !ability.toggleable()) {
+            return false;
+        }
+        boolean nowEnabled = !storage.isAbilityEnabled(player.getUUID(), ability);
+        storage.setAbilityEnabled(player.getUUID(), ability, nowEnabled);
+        return nowEnabled;
+    }
+
+    // ------------------------------------------------------------------
+    // Shrines
+    // ------------------------------------------------------------------
+
+    /** How many shrine items the player is carrying, for both the cost check and the panel. */
+    public static int shrinesHeld(ServerPlayer player) {
+        try {
+            net.minecraft.world.item.Item shrine = InitItems.SHRINE.get();
+            int count = 0;
+            for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                net.minecraft.world.item.ItemStack stack = player.getInventory().getItem(slot);
+                if (!stack.isEmpty() && stack.getItem() == shrine) {
+                    count += stack.getCount();
+                }
+            }
+            return count;
+        } catch (Throwable t) {
+            MaidManagerMod.LOGGER.error("Could not count shrines for {}", player.getUUID(), t);
+            return 0;
+        }
+    }
+
+    /**
+     * Removes {@code amount} shrines, or nothing at all if there are not enough.
+     *
+     * <p>All-or-nothing on purpose: a partial payment would leave the player short and the maid
+     * unrevived, which is worse than refusing.
+     */
+    public static boolean consumeShrines(ServerPlayer player, int amount) {
+        if (amount <= 0) {
+            return true;
+        }
+        if (shrinesHeld(player) < amount) {
+            return false;
+        }
+        try {
+            net.minecraft.world.item.Item shrine = InitItems.SHRINE.get();
+            int left = amount;
+            for (int slot = 0; slot < player.getInventory().getContainerSize() && left > 0; slot++) {
+                net.minecraft.world.item.ItemStack stack = player.getInventory().getItem(slot);
+                if (stack.isEmpty() || stack.getItem() != shrine) {
+                    continue;
+                }
+                int take = Math.min(left, stack.getCount());
+                stack.shrink(take);
+                left -= take;
+            }
+            player.getInventory().setChanged();
+            return true;
+        } catch (Throwable t) {
+            MaidManagerMod.LOGGER.error("Could not consume shrines for {}", player.getUUID(), t);
+            return false;
+        }
+    }
+
+    /** Gives {@code amount} shrines back, used when a revival is cancelled or fails. */
+    public static void refundShrines(ServerPlayer player, int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        try {
+            net.minecraft.world.item.ItemStack stack =
+                    new net.minecraft.world.item.ItemStack(InitItems.SHRINE.get(), amount);
+            // Dropped at the player if the inventory is full, so a refund can never vanish.
+            if (!player.getInventory().add(stack)) {
+                player.drop(stack, false);
+            }
+        } catch (Throwable t) {
+            MaidManagerMod.LOGGER.error("Could not refund shrines for {}", player.getUUID(), t);
+        }
     }
 
     // ------------------------------------------------------------------
@@ -364,7 +460,7 @@ public final class MaidProgressionService {
             if (!(maid.getOwner() instanceof ServerPlayer serverPlayer)) {
                 return;
             }
-            if (hasAbility(serverPlayer, GlobalUpgrade.DEATH_FAVOR)) {
+            if (isAbilityActive(serverPlayer, GlobalUpgrade.DEATH_FAVOR)) {
                 return;
             }
             int points = Type.DEATH.getPoint();

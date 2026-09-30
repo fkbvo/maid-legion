@@ -79,6 +79,20 @@ public enum GlobalUpgrade {
         return kind;
     }
 
+    /**
+     * Whether the player may switch this ability off after buying it.
+     *
+     * <p>Only the flight ability qualifies, because it is the one that takes over a maid's
+     * movement: a player who finds it fighting their own mods needs to be able to park it without
+     * losing the purchase. The other two only change numbers, so a switch would be clutter.
+     *
+     * <p>{@link MaidProgressStorage} stores the switch for every ability regardless, so widening
+     * this later is a one-line change.
+     */
+    public boolean toggleable() {
+        return this == FLIGHT;
+    }
+
     public static GlobalUpgrade byId(String id) {
         if (id == null) {
             return null;

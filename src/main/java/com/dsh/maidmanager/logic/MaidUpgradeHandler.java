@@ -168,7 +168,7 @@ public final class MaidUpgradeHandler {
             if (!MaidRegistry.get(owner.getServer()).isEnrolled(owner.getUUID(), maid.getUUID())) {
                 return 0.0F;
             }
-            return MaidProgressionService.hasAbility(owner, GlobalUpgrade.EXP_BONUS) ? 1.0F : 0.0F;
+            return MaidProgressionService.isAbilityActive(owner, GlobalUpgrade.EXP_BONUS) ? 1.0F : 0.0F;
         } catch (Throwable t) {
             MaidManagerMod.LOGGER.error("Could not apply the experience ability for maid {}",
                     maid.getUUID(), t);

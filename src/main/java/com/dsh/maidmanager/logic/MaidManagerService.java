@@ -178,16 +178,23 @@ public final class MaidManagerService {
     public static ProgressionInfo progression(ServerPlayer player) {
         MaidProgressStorage progress = MaidProgressStorage.get(player.getServer());
         GlobalUpgrade[] abilities = GlobalUpgrade.values();
-        int[] owned = new int[abilities.length];
+        int[] states = new int[abilities.length];
         for (GlobalUpgrade ability : abilities) {
-            owned[ability.ordinal()] = progress.hasGlobal(player.getUUID(), ability) ? 1 : 0;
+            if (!progress.hasGlobal(player.getUUID(), ability)) {
+                states[ability.ordinal()] = ProgressionInfo.NOT_OWNED;
+            } else if (progress.isAbilityEnabled(player.getUUID(), ability)) {
+                states[ability.ordinal()] = ProgressionInfo.OWNED_ACTIVE;
+            } else {
+                states[ability.ordinal()] = ProgressionInfo.OWNED_DISABLED;
+            }
         }
         return new ProgressionInfo(
                 MaidProgressionService.walletOf(player),
                 progress.banked(player.getUUID()),
                 MaidProgressionService.bankCap(),
                 progress.autoDepositEnabled(player.getUUID()),
-                owned);
+                states,
+                MaidProgressionService.shrinesHeld(player));
     }
 
     /** True when this maid is enrolled and therefore visible to the panel. */
